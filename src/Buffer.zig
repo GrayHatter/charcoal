@@ -69,13 +69,24 @@ pub const Box = struct {
 };
 
 pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
-    const pool, const buffer, const raw = try newPool(shm, @intCast(box.w), @intCast(box.h), name);
+    const width: u31 = @intCast(box.w);
+    const stride: u31 = width * 4;
+    const height: u31 = @intCast(box.h);
+    const size: u31 = stride * height;
+
+    const fd = try posix.memfd_create(name, 0);
+    try posix.ftruncate(fd, size);
+    const prot = posix.PROT.READ | posix.PROT.WRITE;
+    const raw = try posix.mmap(null, size, prot, .{ .TYPE = .SHARED }, fd, 0);
+
+    const pool = try shm.createPool(fd, size);
+    const buffer = try pool.createBuffer(0, width, height, stride, .argb8888);
     return .{
         .buffer = buffer,
-        .raw = raw,
-        .width = @intCast(box.w),
-        .height = @intCast(box.h),
-        .stride = @intCast(box.w * 4),
+        .raw = @ptrCast(raw),
+        .width = width,
+        .height = height,
+        .stride = stride,
         .pool = pool,
     };
 }
@@ -310,26 +321,6 @@ pub fn drawFont(b: Buffer, T: type, color: T, box: Box, src: []const u8) void {
             color2.mix(&row[dx]);
         }
     }
-}
-
-fn newPool(shm: *wl.Shm, width: u32, height: u32, name: []const u8) !struct { *wl.ShmPool, *wl.Buffer, []u32 } {
-    const stride = width * 4;
-    const size: usize = stride * height;
-
-    const fd = try posix.memfd_create(name, 0);
-    try posix.ftruncate(fd, size);
-    const data = try posix.mmap(
-        null,
-        size,
-        posix.PROT.READ | posix.PROT.WRITE,
-        .{ .TYPE = .SHARED },
-        fd,
-        0,
-    );
-
-    const pool = try shm.createPool(fd, @intCast(size));
-    const buffer = try pool.createBuffer(0, @intCast(width), @intCast(height), @intCast(stride), .argb8888);
-    return .{ pool, buffer, @ptrCast(data) };
 }
 
 const std = @import("std");
