@@ -5,6 +5,11 @@ width: u32,
 height: u32,
 stride: u32,
 
+capacity: struct {
+    width: u32,
+    height: u32,
+},
+
 damaged: Box = .zero,
 
 const Buffer = @This();
@@ -69,9 +74,13 @@ pub const Box = struct {
 };
 
 pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
-    const width: u31 = @intCast(box.w);
+    return try initCapacity(shm, box, box, name);
+}
+
+pub fn initCapacity(shm: *wl.Shm, box: Box, extra: Box, name: []const u8) !Buffer {
+    const width: u31 = @intCast(extra.w);
     const stride: u31 = width * 4;
-    const height: u31 = @intCast(box.h);
+    const height: u31 = @intCast(extra.h);
     const size: u31 = stride * height;
 
     const fd = try posix.memfd_create(name, 0);
@@ -80,13 +89,17 @@ pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
     const raw = try posix.mmap(null, size, prot, .{ .TYPE = .SHARED }, fd, 0);
 
     const pool = try shm.createPool(fd, size);
-    const buffer = try pool.createBuffer(0, width, height, stride, .argb8888);
+    const buffer = try pool.createBuffer(0, @intCast(box.w), @intCast(box.h), stride, .argb8888);
     return .{
         .buffer = buffer,
         .raw = @ptrCast(raw),
-        .width = width,
-        .height = height,
-        .stride = stride,
+        .width = @intCast(box.w),
+        .height = @intCast(box.h),
+        .capacity = .{
+            .width = width,
+            .height = height,
+        },
+        .stride = stride / 4,
         .pool = pool,
     };
 }
@@ -94,6 +107,7 @@ pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
 pub fn raze(b: Buffer) void {
     b.buffer.destroy();
     b.pool.destroy();
+    posix.munmap(@alignCast(@ptrCast(b.raw)));
 }
 
 pub fn getDamaged(b: *Buffer) Box {
@@ -102,7 +116,7 @@ pub fn getDamaged(b: *Buffer) Box {
 }
 
 fn rowSlice(b: Buffer, y: usize) []u32 {
-    return b.raw[b.width * y ..][0..b.width];
+    return b.raw[b.stride * y ..][0..b.width];
 }
 
 pub fn draw(b: Buffer, box: Box, src: []const u32) void {
