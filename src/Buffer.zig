@@ -110,6 +110,18 @@ pub fn raze(b: Buffer) void {
     posix.munmap(@alignCast(@ptrCast(b.raw)));
 }
 
+pub fn resize(b: *Buffer, new: Box) !void {
+    std.debug.assert(new.x == 0);
+    std.debug.assert(new.y == 0);
+    // TODO there's no reason we can't support ratio changes as well
+    if (new.w > b.capacity.width or new.h > b.capacity.height) return error.OutOfRange;
+    const old = b.buffer;
+    b.buffer = try b.pool.createBuffer(0, @intCast(new.w), @intCast(new.h), @intCast(b.stride * 4), .argb8888);
+    old.destroy();
+    b.width = @intCast(new.w);
+    b.height = @intCast(new.h);
+}
+
 pub fn getDamaged(b: *Buffer) Box {
     defer b.damaged = .zero;
     return b.damaged;
