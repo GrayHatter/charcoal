@@ -138,5 +138,5 @@ pub const Mouse = struct {
 };
 
 const Allocator = @import("std").mem.Allocator;
-const Keymap = @import("Keymap.zig");
-const Buffer = @import("Buffer.zig");
+const Keymap = @import("../Keymap.zig");
+const Buffer = @import("../Buffer.zig");
