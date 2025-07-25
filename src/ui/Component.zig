@@ -32,18 +32,19 @@ pub fn background(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void
 }
 
 pub fn draw(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
+    // pre-set damaged = false so called fn can reset it if required
+    comp.redraw_req = false;
+    comp.damaged = false;
     if (comp.vtable.draw) |drawV| {
         drawV(comp, buffer, box);
     } else for (comp.children) |*child| {
         child.draw(buffer, box);
-        child.redraw_req = false;
     }
-    comp.redraw_req = false;
 }
 
 pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
     if (comp.vtable.keypress) |kp| {
-        comp.damaged = kp(comp, evt);
+        return kp(comp, evt);
     } else for (comp.children) |*child| {
         if (child.keyPress(evt)) {
             comp.damaged = child.damaged or comp.damaged;
@@ -67,7 +68,10 @@ pub fn click(comp: *Component, clk: Pointer.Click, box: Buffer.Box) bool {
     if (comp.vtable.click) |clickV| {
         return clickV(comp, clk, box);
     } else for (comp.children) |*child| {
-        if (child.click(clk, box)) break;
+        if (child.click(clk, box)) {
+            comp.damaged = child.damaged or comp.damaged;
+            return true;
+        }
     }
 
     return false;

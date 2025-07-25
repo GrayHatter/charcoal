@@ -1,6 +1,6 @@
-running: bool = true,
 display: *Display,
 registry: *Registry,
+connected: bool = false,
 
 compositor: ?*Compositor = null,
 shm: ?*Shm = null,
@@ -58,13 +58,14 @@ pub fn handshake(w: *Wayland) !void {
     w.toplevel = try w.xdgsurface.?.getToplevel(); //  orelse return error.NoToplevel;
     w.xdgsurface.?.setListener(*Wayland, listeners.xdgSurfaceEvent, w);
     w.toplevel.?.setListener(*Wayland, listeners.xdgToplevelEvent, w);
+    w.connected = true;
 }
 
 pub fn raze(w: *Wayland) void {
     if (w.toplevel) |tl| tl.destroy();
     if (w.xdgsurface) |s| s.destroy();
     if (w.surface) |s| s.destroy();
-    w.running = false;
+    w.connected = false;
 }
 
 pub fn roundtrip(w: *Wayland) !void {
@@ -77,7 +78,7 @@ pub fn roundtrip(w: *Wayland) !void {
     }
 }
 
-pub fn iterate(w: *Wayland) !void {
+pub fn iterate(w: Wayland) !void {
     switch (w.display.dispatch()) {
         .SUCCESS => {},
         else => |wut| {
@@ -106,7 +107,7 @@ pub fn configure(_: *Wayland, evt: Toplevel.Event) void {
 }
 
 pub fn quit(wl: *Wayland) void {
-    wl.running = false;
+    wl.connected = false;
 }
 
 pub fn getUi(wl: *Wayland) *Ui {

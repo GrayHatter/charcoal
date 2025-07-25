@@ -3,6 +3,7 @@ keymap: Keymap = .{},
 hid: struct {
     mods: u32 = 0,
 } = .{},
+active_buffer: ?*Buffer = null,
 
 const Ui = @This();
 
@@ -34,6 +35,23 @@ pub fn tick(ui: Ui, ptr: ?*anyopaque) void {
     if (ui.root) |root| {
         root.tick(ptr);
     }
+}
+
+pub fn background(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+    const root = ui.root orelse return;
+    root.background(buffer, box);
+}
+
+pub fn draw(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+    const root = ui.root orelse return;
+    if (root.damaged) {
+        root.draw(buffer, box);
+    }
+}
+
+pub fn redraw(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+    const root = ui.root orelse return;
+    root.draw(buffer, box);
 }
 
 pub fn event(ui: *Ui, evt: Event) void {
