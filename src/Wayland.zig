@@ -68,14 +68,21 @@ pub fn raze(w: *Wayland) void {
 }
 
 pub fn roundtrip(w: *Wayland) !void {
-    if (w.display.roundtrip() != .SUCCESS) return error.RoundtripFailed;
+    switch (w.display.roundtrip()) {
+        .SUCCESS => {},
+        else => |wut| {
+            log.err("Wayland Roundtrip failed {}\n", .{wut});
+            return error.WaylandRoundtripError;
+        },
+    }
 }
 
 pub fn iterate(w: *Wayland) !void {
     switch (w.display.dispatch()) {
         .SUCCESS => {},
         else => |wut| {
-            std.debug.print("Wayland Dispatch failed {}\n", .{wut});
+            log.err("Wayland Dispatch failed {}\n", .{wut});
+            return error.WaylandDispatchError;
         },
     }
 }
@@ -90,11 +97,10 @@ pub fn resize(w: *Wayland, box: Buffer.Box) !void {
 }
 
 pub fn configure(_: *Wayland, evt: Toplevel.Event) void {
-    const debug = false;
     switch (evt) {
-        .configure => |conf| if (debug) std.debug.print("toplevel conf {}\n", .{conf}),
-        .configure_bounds => |bounds| if (debug) std.debug.print("toplevel bounds {}\n", .{bounds}),
-        .wm_capabilities => |caps| if (debug) std.debug.print("toplevel caps {}\n", .{caps}),
+        .configure => |conf| log.debug("toplevel conf {}", .{conf}),
+        .configure_bounds => |bounds| log.debug("toplevel bounds {}", .{bounds}),
+        .wm_capabilities => |caps| log.debug("toplevel caps {}", .{caps}),
         .close => unreachable,
     }
 }
@@ -112,10 +118,10 @@ pub fn initDmabuf(wl: *Wayland) !void {
     const dmabuf = wl.dmabuf orelse return error.NoDMABUF;
     if (wl.surface) |surface| {
         const feedback = try dmabuf.getSurfaceFeedback(surface);
-        std.debug.print("dma feedback {}\n", .{feedback});
+        log.debug("dma feedback {}\n", .{feedback});
     } else {
         const feedback = try dmabuf.getDefaultFeedback();
-        std.debug.print("dma feedback {}\n", .{feedback});
+        log.debug("dma feedback {}\n", .{feedback});
     }
     // TODO implement listener/processor
 
@@ -124,6 +130,7 @@ pub fn initDmabuf(wl: *Wayland) !void {
 
 test {
     _ = &listeners;
+    _ = &Keymap;
 }
 
 const std = @import("std");
@@ -132,6 +139,7 @@ const log = std.log.scoped(.charcoal_wayland);
 const wayland_ = @import("wayland");
 
 const Charcoal = @import("charcoal.zig").Charcoal;
+const Keymap = @import("Keymap.zig");
 const Buffer = @import("Buffer.zig");
 const Ui = @import("Ui.zig");
 const listeners = @import("listeners.zig").Listeners;
