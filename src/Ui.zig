@@ -6,8 +6,7 @@ hid: struct {
 
 const Ui = @This();
 
-pub const Keymap = @import("Keymap.zig");
-pub const Component = @import("ui/Component.zig").Component;
+pub const Component = @import("ui/Component.zig");
 
 pub const Event = union(enum) {
     key: Wayland.Keyboard.Event,
@@ -77,6 +76,7 @@ pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
 }
 
 const std = @import("std");
-pub const charcoal = @import("charcoal.zig");
-pub const Wayland = charcoal.Wayland;
-pub const Charcoal = charcoal.Charcoal;
+const charcoal = @import("charcoal.zig");
+const Charcoal = charcoal.Charcoal;
+const Wayland = @import("Wayland.zig");
+pub const Keymap = @import("Keymap.zig");

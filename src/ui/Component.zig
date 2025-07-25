@@ -1,77 +1,77 @@
-pub const Component = struct {
-    vtable: VTable,
-    box: Buffer.Box = undefined,
-    damaged: bool = false,
-    redraw_req: bool = false,
-    state: *anyopaque = undefined,
-    children: []Component,
+vtable: VTable,
+box: Buffer.Box = undefined,
+damaged: bool = false,
+redraw_req: bool = false,
+state: *anyopaque = undefined,
+children: []Component,
 
-    pub fn init(comp: *Component, a: Allocator, box: Buffer.Box) InitError!void {
-        if (comp.vtable.init) |initV| {
-            try initV(comp, a, box);
-        } else for (comp.children) |*child| try child.init(a, box);
+const Component = @This();
+
+pub fn init(comp: *Component, a: Allocator, box: Buffer.Box) InitError!void {
+    if (comp.vtable.init) |initV| {
+        try initV(comp, a, box);
+    } else for (comp.children) |*child| try child.init(a, box);
+}
+
+pub fn raze(comp: *Component, a: Allocator) void {
+    if (comp.vtable.raze) |razeV| {
+        razeV(comp, a);
+    } else for (comp.children) |*child| child.raze(a);
+}
+
+pub fn tick(comp: *Component, ptr: ?*anyopaque) void {
+    if (comp.vtable.tick) |tickV| {
+        tickV(comp, ptr);
+    } else for (comp.children) |*child| child.tick(ptr);
+}
+
+pub fn background(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
+    if (comp.vtable.background) |bg| {
+        bg(comp, buffer, box);
+    } else for (comp.children) |*child| child.background(buffer, box);
+}
+
+pub fn draw(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
+    if (comp.vtable.draw) |drawV| {
+        drawV(comp, buffer, box);
+    } else for (comp.children) |*child| {
+        child.draw(buffer, box);
+        child.redraw_req = false;
     }
+    comp.redraw_req = false;
+}
 
-    pub fn raze(comp: *Component, a: Allocator) void {
-        if (comp.vtable.raze) |razeV| {
-            razeV(comp, a);
-        } else for (comp.children) |*child| child.raze(a);
-    }
-
-    pub fn tick(comp: *Component, ptr: ?*anyopaque) void {
-        if (comp.vtable.tick) |tickV| {
-            tickV(comp, ptr);
-        } else for (comp.children) |*child| child.tick(ptr);
-    }
-
-    pub fn background(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
-        if (comp.vtable.background) |bg| {
-            bg(comp, buffer, box);
-        } else for (comp.children) |*child| child.background(buffer, box);
-    }
-
-    pub fn draw(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
-        if (comp.vtable.draw) |drawV| {
-            drawV(comp, buffer, box);
-        } else for (comp.children) |*child| {
-            child.draw(buffer, box);
-            child.redraw_req = false;
-        }
-        comp.redraw_req = false;
-    }
-
-    pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
-        if (comp.vtable.keypress) |kp| {
-            comp.damaged = kp(comp, evt);
-        } else for (comp.children) |*child| {
-            if (child.keyPress(evt)) {
-                comp.damaged = child.damaged or comp.damaged;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    pub fn mMove(comp: *Component, mmove: Mouse.Movement, box: Buffer.Box) void {
-        if (comp.vtable.mmove) |mmoveV| {
-            mmoveV(comp, mmove, box);
-        } else for (comp.children) |*child| {
-            child.mMove(mmove, box);
+pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
+    if (comp.vtable.keypress) |kp| {
+        comp.damaged = kp(comp, evt);
+    } else for (comp.children) |*child| {
+        if (child.keyPress(evt)) {
             comp.damaged = child.damaged or comp.damaged;
+            return true;
         }
     }
 
-    pub fn mClick(comp: *Component, mclick: Mouse.Click, box: Buffer.Box) bool {
-        if (comp.vtable.mclick) |mclickV| {
-            return mclickV(comp, mclick, box);
-        } else for (comp.children) |*child| {
-            if (child.mClick(mclick, box)) break;
-        }
+    return false;
+}
 
-        return false;
+pub fn mMove(comp: *Component, mmove: Mouse.Movement, box: Buffer.Box) void {
+    if (comp.vtable.mmove) |mmoveV| {
+        mmoveV(comp, mmove, box);
+    } else for (comp.children) |*child| {
+        child.mMove(mmove, box);
+        comp.damaged = child.damaged or comp.damaged;
     }
-};
+}
+
+pub fn mClick(comp: *Component, mclick: Mouse.Click, box: Buffer.Box) bool {
+    if (comp.vtable.mclick) |mclickV| {
+        return mclickV(comp, mclick, box);
+    } else for (comp.children) |*child| {
+        if (child.mClick(mclick, box)) break;
+    }
+
+    return false;
+}
 
 pub const VTable = struct {
     init: ?Init,
