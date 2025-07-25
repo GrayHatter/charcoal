@@ -231,9 +231,11 @@ pub const Wayland = struct {
 
 test {
     _ = &listeners;
+    _ = &Buffer;
+    _ = &ui;
+    _ = std.testing.refAllDecls(@This());
 }
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-
 const listeners = @import("listeners.zig").Listeners;

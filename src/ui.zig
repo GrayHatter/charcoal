@@ -71,11 +71,6 @@ pub const Component = struct {
 
         return false;
     }
-
-    pub fn painted(comp: *Component) void {
-        comp.damaged = false;
-        for (comp.children) |*child| child.painted();
-    }
 };
 
 pub const VTable = struct {
