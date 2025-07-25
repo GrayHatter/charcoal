@@ -17,12 +17,18 @@ pub const Event = union(enum) {
     pub const Click = Component.Pointer.Click;
 };
 
-pub fn init(ui: *Ui, comp: *Component, a: Allocator) Component.InitError!Ui {
+pub fn init(ui: *Ui, comp: *Component, a: Allocator, b: Buffer.Box) Component.InitError!void {
     ui.root = comp;
-    try ui.root.init(a);
+
+    try ui.root.?.init(a, b);
 }
 
-pub fn raze(_: Ui) void {}
+pub fn raze(ui: *Ui, a: Allocator) void {
+    if (ui.root) |root| {
+        root.raze(a);
+    }
+    ui.root = null;
+}
 
 pub fn tick(ui: Ui, ptr: ?*anyopaque) void {
     if (ui.root) |root| {
@@ -31,6 +37,10 @@ pub fn tick(ui: Ui, ptr: ?*anyopaque) void {
 }
 
 pub fn event(ui: *Ui, evt: Event) void {
+    const root = ui.root orelse {
+        log.warn("UI not ready for event {}", .{evt});
+        return;
+    };
     switch (evt) {
         .key => |k| switch (k) {
             .key => |key| {
@@ -41,7 +51,6 @@ pub fn event(ui: *Ui, evt: Event) void {
                         log.debug("unexpected keyboard key state {}", .{unk});
                     },
                 }
-                const root = ui.root orelse return;
                 const mods: Keymap.Modifiers = .init(ui.hid.mods);
                 _ = root.keyPress(.{
                     .up = key.state == .released,
@@ -83,4 +92,5 @@ const log = std.log.scoped(.charcoal_ui);
 const charcoal = @import("charcoal.zig");
 const Charcoal = charcoal.Charcoal;
 const Wayland = @import("Wayland.zig");
-pub const Keymap = @import("Keymap.zig");
+const Keymap = @import("Keymap.zig");
+const Buffer = @import("Buffer.zig");

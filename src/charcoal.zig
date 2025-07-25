@@ -16,7 +16,7 @@ pub const Charcoal = struct {
 
     pub fn raze(c: *Charcoal) void {
         c.wayland.raze();
-        c.ui.raze();
+        //c.ui.raze();
     }
 
     pub fn iterate(c: Charcoal) !void {
