@@ -52,8 +52,10 @@ pub const Ui = struct {
 
     pub fn raze(_: Ui) void {}
 
-    pub fn tick(u: Ui) void {
-        if (u.root) |root| root.tick(null);
+    pub fn tick(u: Ui, ptr: ?*anyopaque) void {
+        if (u.root) |root| {
+            root.tick(ptr);
+        }
     }
 
     pub fn event(u: *Ui, evt: Event) void {
