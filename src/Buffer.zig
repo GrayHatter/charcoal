@@ -77,11 +77,14 @@ pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
     return try initCapacity(shm, box, box, name);
 }
 
-pub fn initCapacity(shm: *wl.Shm, box: Box, extra: Box, name: []const u8) !Buffer {
+pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: []const u8) !Buffer {
     const width: u31 = @intCast(extra.w);
     const stride: u31 = width * 4;
     const height: u31 = @intCast(extra.h);
     const size: u31 = stride * height;
+
+    const active_width: u31 = @intCast(active.w);
+    const active_height: u31 = @intCast(active.h);
 
     const fd = try posix.memfd_create(name, 0);
     try posix.ftruncate(fd, size);
@@ -89,12 +92,12 @@ pub fn initCapacity(shm: *wl.Shm, box: Box, extra: Box, name: []const u8) !Buffe
     const raw = try posix.mmap(null, size, prot, .{ .TYPE = .SHARED }, fd, 0);
 
     const pool = try shm.createPool(fd, size);
-    const buffer = try pool.createBuffer(0, @intCast(box.w), @intCast(box.h), stride, .argb8888);
+    const buffer = try pool.createBuffer(0, active_width, active_height, stride, .argb8888);
     return .{
         .buffer = buffer,
         .raw = @ptrCast(raw),
-        .width = @intCast(box.w),
-        .height = @intCast(box.h),
+        .width = active_width,
+        .height = active_height,
         .capacity = .{
             .width = width,
             .height = height,
@@ -111,8 +114,8 @@ pub fn raze(b: Buffer) void {
 }
 
 pub fn resize(b: *Buffer, new: Box) !void {
-    std.debug.assert(new.x == 0);
-    std.debug.assert(new.y == 0);
+    assert(new.x == 0);
+    assert(new.y == 0);
     // TODO there's no reason we can't support ratio changes as well
     if (new.w > b.capacity.width or new.h > b.capacity.height) return error.OutOfRange;
     const old = b.buffer;
@@ -144,8 +147,8 @@ pub fn drawRectangle(b: Buffer, T: type, box: Box, ecolor: T) void {
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
-    std.debug.assert(box.w > 3);
-    std.debug.assert(box.h > 3);
+    assert(box.w > 3);
+    assert(box.h > 3);
     for (box.y + 1..height - 1) |y| {
         const row = b.rowSlice(y);
         row[box.x] = color;
@@ -161,8 +164,8 @@ pub fn drawRectangleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
-    std.debug.assert(box.w > 3);
-    std.debug.assert(box.h > 3);
+    assert(box.w > 3);
+    assert(box.h > 3);
     for (box.y..height) |y| {
         const row = b.rowSlice(y);
         @memset(row[box.x..width], color);
@@ -173,8 +176,8 @@ pub fn drawRectangleFillMix(b: Buffer, T: type, box: Box, ecolor: T) void {
     //const width = box.x + box.w;
     const height = box.y + box.h;
     //const color: u32 = @intFromEnum(ecolor);
-    std.debug.assert(box.w > 3);
-    std.debug.assert(box.h > 3);
+    assert(box.w > 3);
+    assert(box.h > 3);
     for (box.y..height) |y| {
         const row = b.rowSlice(y);
         for (box.x..box.x2()) |x| {
@@ -187,8 +190,8 @@ pub fn drawRectangleRounded(b: Buffer, T: type, box: Box, base_r: f64, ecolor: T
     const r: f64 = base_r - 0.5;
     const color: u32 = @intFromEnum(ecolor);
     const radius: usize = @intFromFloat(base_r);
-    std.debug.assert(box.w > radius);
-    std.debug.assert(box.h > radius);
+    assert(box.w > radius);
+    assert(box.h > radius);
     for (box.y..box.y + radius, 0..) |dst_y, y| {
         const row = b.rowSlice(dst_y);
         const dy: f64 = @as(f64, @floatFromInt(y)) - r;
@@ -234,8 +237,8 @@ pub fn drawRectangleRoundedFill(b: Buffer, T: type, box: Box, base_r: f64, ecolo
     const r: f64 = base_r - 0.5;
     const radius: usize = @intFromFloat(base_r);
     const color: u32 = @intFromEnum(ecolor);
-    std.debug.assert(box.w > radius);
-    std.debug.assert(box.h > radius);
+    assert(box.w > radius);
+    assert(box.h > radius);
     for (box.y..box.y + radius, 0..) |dst_y, y| {
         const row = b.rowSlice(dst_y);
         const dy: f64 = @as(f64, @floatFromInt(y)) - r;
@@ -279,8 +282,8 @@ pub fn drawRectangleRoundedFill(b: Buffer, T: type, box: Box, base_r: f64, ecolo
 }
 
 pub fn drawPoint(b: Buffer, T: type, box: Box, ecolor: T) void {
-    std.debug.assert(box.w < 2);
-    std.debug.assert(box.h < 2);
+    assert(box.w < 2);
+    assert(box.h < 2);
     const color: u32 = @intFromEnum(ecolor);
     const row = b.rowSlice(box.y);
     row[box.x] = color;
@@ -316,9 +319,9 @@ pub fn drawCircleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
 }
 
 pub fn drawCircleCentered(b: Buffer, T: type, box: Box, ecolor: T) void {
-    std.debug.assert(box.h == box.w);
-    std.debug.assert(box.x > (box.w - 1) / 2);
-    std.debug.assert(box.y > (box.h - 1) / 2);
+    assert(box.h == box.w);
+    assert(box.x > (box.w - 1) / 2);
+    assert(box.y > (box.h - 1) / 2);
     const color: u32 = @intFromEnum(ecolor);
     const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
     const adj_x: u32 = @truncate(box.x - @as(u32, @intFromFloat(@floor(half + 0.6))));
@@ -350,6 +353,7 @@ pub fn drawFont(b: Buffer, T: type, color: T, box: Box, src: []const u8) void {
 }
 
 const std = @import("std");
+const assert = std.debug.assert;
 const wayland = @import("wayland");
 const wl = wayland.client.wl;
 const posix = std.posix;
