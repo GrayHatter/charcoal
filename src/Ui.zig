@@ -13,22 +13,19 @@ pub const Event = union(enum) {
     pointer: Wayland.Pointer.Event,
 };
 
-pub fn init(u: *Component) Ui {
-    return .{
-        .root = u,
-    };
+pub fn init(ui: *Ui, comp: *Component) Ui {
+    ui.root = comp;
 }
 
 pub fn raze(_: Ui) void {}
 
-pub fn tick(u: Ui, ptr: ?*anyopaque) void {
-    if (u.root) |root| {
+pub fn tick(ui: Ui, ptr: ?*anyopaque) void {
+    if (ui.root) |root| {
         root.tick(ptr);
     }
 }
 
-pub fn event(u: *Ui, evt: Event) void {
-    const debug_events = false;
+pub fn event(ui: *Ui, evt: Event) void {
     switch (evt) {
         .key => |k| switch (k) {
             .key => |key| {
@@ -36,29 +33,29 @@ pub fn event(u: *Ui, evt: Event) void {
                     .pressed => {},
                     .released => {},
                     else => |unk| {
-                        if (debug_events) std.debug.print("unexpected keyboard key state {} \n", .{unk});
+                        log.debug("unexpected keyboard key state {}", .{unk});
                     },
                 }
-                const uiroot = u.root orelse return;
-                const mods: Keymap.Modifiers = .init(u.hid.mods);
-                _ = uiroot.keyPress(.{
+                const root = ui.root orelse return;
+                const mods: Keymap.Modifiers = .init(ui.hid.mods);
+                _ = root.keyPress(.{
                     .up = key.state == .released,
-                    .key = if (u.keymap.ascii(key.key, mods)) |asc|
+                    .key = if (ui.keymap.ascii(key.key, mods)) |asc|
                         .{ .char = asc }
                     else
-                        .{ .ctrl = u.keymap.ctrl(key.key) },
+                        .{ .ctrl = ui.keymap.ctrl(key.key) },
                     .mods = mods,
                 });
             },
             .modifiers => {
-                u.hid.mods = k.modifiers.mods_depressed;
-                if (debug_events) std.debug.print("mods {}\n", .{k.modifiers});
+                ui.hid.mods = k.modifiers.mods_depressed;
+                log.debug("mods {}\n", .{k.modifiers});
             },
             else => {},
         },
         .pointer => |point| switch (point) {
             .button => |btn| {
-                const chr: *Charcoal = @fieldParentPtr("ui", u);
+                const chr: *Charcoal = @fieldParentPtr("ui", ui);
                 chr.wayland.toplevel.?.move(chr.wayland.seat.?, btn.serial);
             },
             else => {},
@@ -67,7 +64,7 @@ pub fn event(u: *Ui, evt: Event) void {
 }
 
 pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
-    if (false) std.debug.print("newKeymap {} {}\n", .{ evt.keymap.fd, evt.keymap.size });
+    log.debug("newKeymap {} {}\n", .{ evt.keymap.fd, evt.keymap.size });
     if (Keymap.initFd(evt.keymap.fd, evt.keymap.size)) |km| {
         u.keymap = km;
     } else |_| {
@@ -75,7 +72,7 @@ pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
     }
 }
 
-const std = @import("std");
+const log = @import("std").log.scoped(.charcoal_ui);
 const charcoal = @import("charcoal.zig");
 const Charcoal = charcoal.Charcoal;
 const Wayland = @import("Wayland.zig");
