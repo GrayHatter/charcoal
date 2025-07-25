@@ -54,7 +54,7 @@ pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
     return false;
 }
 
-pub fn mMove(comp: *Component, mmove: Mouse.Movement, box: Buffer.Box) void {
+pub fn mMove(comp: *Component, mmove: Pointer.Movement, box: Buffer.Box) void {
     if (comp.vtable.mmove) |mmoveV| {
         mmoveV(comp, mmove, box);
     } else for (comp.children) |*child| {
@@ -63,11 +63,11 @@ pub fn mMove(comp: *Component, mmove: Mouse.Movement, box: Buffer.Box) void {
     }
 }
 
-pub fn mClick(comp: *Component, mclick: Mouse.Click, box: Buffer.Box) bool {
-    if (comp.vtable.mclick) |mclickV| {
-        return mclickV(comp, mclick, box);
+pub fn click(comp: *Component, clk: Pointer.Click, box: Buffer.Box) bool {
+    if (comp.vtable.click) |clickV| {
+        return clickV(comp, clk, box);
     } else for (comp.children) |*child| {
-        if (child.mClick(mclick, box)) break;
+        if (child.click(clk, box)) break;
     }
 
     return false;
@@ -81,7 +81,7 @@ pub const VTable = struct {
     draw: ?Draw,
     keypress: ?KeyPress,
     mmove: ?MMove,
-    mclick: ?MClick,
+    click: ?Click,
 
     pub fn auto(comptime uicomp: type) VTable {
         return .{
@@ -92,7 +92,7 @@ pub const VTable = struct {
             .draw = if (@hasDecl(uicomp, "draw")) uicomp.draw else null,
             .keypress = if (@hasDecl(uicomp, "keyPress")) uicomp.keyPress else null,
             .mmove = if (@hasDecl(uicomp, "mMove")) uicomp.mMove else null,
-            .mclick = if (@hasDecl(uicomp, "mClick")) uicomp.mClick else null,
+            .click = if (@hasDecl(uicomp, "click")) uicomp.mClick else null,
         };
     }
 };
@@ -103,8 +103,8 @@ pub const Tick = *const fn (*Component, ?*anyopaque) void;
 pub const Background = *const fn (*Component, *const Buffer, Buffer.Box) void;
 pub const Draw = *const fn (*Component, *const Buffer, Buffer.Box) void;
 pub const KeyPress = *const fn (*Component, KeyEvent) bool;
-pub const MMove = *const fn (*Component, Mouse.Movement) void;
-pub const MClick = *const fn (*Component, Mouse.Click) bool;
+pub const MMove = *const fn (*Component, Pointer.Movement) void;
+pub const Click = *const fn (*Component, Pointer.Click) bool;
 
 pub const InitError = error{
     OutOfMemory,
@@ -120,7 +120,7 @@ pub const KeyEvent = struct {
     mods: Keymap.Modifiers,
 };
 
-pub const Mouse = struct {
+pub const Pointer = struct {
     pub const Movement = struct {
         up: bool,
         x: isize,

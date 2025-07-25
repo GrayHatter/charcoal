@@ -19,11 +19,15 @@ pub const Charcoal = struct {
         c.ui.raze();
     }
 
-    pub fn iterate(c: *Charcoal) !void {
+    pub fn iterate(c: Charcoal) !void {
+        try c.iterateTick(null);
+    }
+
+    pub fn iterateTick(c: Charcoal, tick_ptr: ?*anyopaque) !void {
         if (!c.wayland.running) return error.WaylandExited;
         try c.wayland.iterate();
 
-        c.ui.tick(null);
+        c.ui.tick(tick_ptr);
     }
 };
 

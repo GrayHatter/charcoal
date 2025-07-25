@@ -71,7 +71,7 @@ pub fn roundtrip(w: *Wayland) !void {
     switch (w.display.roundtrip()) {
         .SUCCESS => {},
         else => |wut| {
-            log.err("Wayland Roundtrip failed {}\n", .{wut});
+            log.err("Wayland Roundtrip failed {}", .{wut});
             return error.WaylandRoundtripError;
         },
     }
@@ -81,7 +81,7 @@ pub fn iterate(w: *Wayland) !void {
     switch (w.display.dispatch()) {
         .SUCCESS => {},
         else => |wut| {
-            log.err("Wayland Dispatch failed {}\n", .{wut});
+            log.err("Wayland Dispatch failed {}", .{wut});
             return error.WaylandDispatchError;
         },
     }
@@ -118,10 +118,10 @@ pub fn initDmabuf(wl: *Wayland) !void {
     const dmabuf = wl.dmabuf orelse return error.NoDMABUF;
     if (wl.surface) |surface| {
         const feedback = try dmabuf.getSurfaceFeedback(surface);
-        log.debug("dma feedback {}\n", .{feedback});
+        log.debug("dma feedback {}", .{feedback});
     } else {
         const feedback = try dmabuf.getDefaultFeedback();
-        log.debug("dma feedback {}\n", .{feedback});
+        log.debug("dma feedback {}", .{feedback});
     }
     // TODO implement listener/processor
 

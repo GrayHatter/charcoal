@@ -11,10 +11,15 @@ pub const Component = @import("ui/Component.zig");
 pub const Event = union(enum) {
     key: Wayland.Keyboard.Event,
     pointer: Wayland.Pointer.Event,
+
+    pub const Key = Component.KeyEvent;
+    pub const MMove = Component.Pointer.Movement;
+    pub const Click = Component.Pointer.Click;
 };
 
-pub fn init(ui: *Ui, comp: *Component) Ui {
+pub fn init(ui: *Ui, comp: *Component, a: Allocator) Component.InitError!Ui {
     ui.root = comp;
+    try ui.root.init(a);
 }
 
 pub fn raze(_: Ui) void {}
@@ -49,7 +54,7 @@ pub fn event(ui: *Ui, evt: Event) void {
             },
             .modifiers => {
                 ui.hid.mods = k.modifiers.mods_depressed;
-                log.debug("mods {}\n", .{k.modifiers});
+                log.debug("mods {}", .{k.modifiers});
             },
             else => {},
         },
@@ -64,7 +69,7 @@ pub fn event(ui: *Ui, evt: Event) void {
 }
 
 pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
-    log.debug("newKeymap {} {}\n", .{ evt.keymap.fd, evt.keymap.size });
+    log.debug("newKeymap {} {}", .{ evt.keymap.fd, evt.keymap.size });
     if (Keymap.initFd(evt.keymap.fd, evt.keymap.size)) |km| {
         u.keymap = km;
     } else |_| {
@@ -72,7 +77,9 @@ pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
     }
 }
 
-const log = @import("std").log.scoped(.charcoal_ui);
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.charcoal_ui);
 const charcoal = @import("charcoal.zig");
 const Charcoal = charcoal.Charcoal;
 const Wayland = @import("Wayland.zig");
