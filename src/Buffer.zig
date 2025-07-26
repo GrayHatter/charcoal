@@ -41,6 +41,32 @@ pub const Box = struct {
         }
     };
 
+    pub const WH = struct {
+        w: isize,
+        h: isize,
+
+        pub fn wh(w: usize, h: usize) Box {
+            return .{ .w = w, .h = h };
+        }
+
+        pub fn box(wh_: WH) Box {
+            return .wh(wh_.w, wh_.h);
+        }
+    };
+
+    pub const XY = struct {
+        x: isize,
+        y: isize,
+
+        pub fn xy(x: isize, y: isize) XY {
+            return .{ .x = x, .y = y };
+        }
+
+        pub fn box(xy_: XY) Box {
+            return .xy(xy_.x, xy_.y);
+        }
+    };
+
     pub inline fn x2(b: Box) usize {
         return b.x + b.w;
     }
