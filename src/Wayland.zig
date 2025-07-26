@@ -88,6 +88,13 @@ pub fn iterate(w: Wayland) !void {
     }
 }
 
+pub fn attach(w: *Wayland, b: Buffer) !void {
+    const surface = w.surface orelse return error.NoSurface;
+    surface.attach(b.buffer, 0, 0);
+    surface.commit();
+    try w.roundtrip();
+}
+
 pub fn resize(w: *Wayland, box: Buffer.Box) !void {
     if (w.toplevel) |tl| {
         tl.setMaxSize(@intCast(box.w), @intCast(box.h));
