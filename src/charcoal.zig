@@ -32,14 +32,14 @@ pub const Charcoal = struct {
         c.ui.tick(tick_ptr);
     }
 
-    pub fn run(c: Charcoal) !void {
+    pub fn run(c: *Charcoal) !void {
         return try c.runTick(null);
     }
 
-    pub fn runTick(c: Charcoal, tick_ptr: ?*anyopaque) !void {
+    pub fn runTick(c: *Charcoal, tick_ptr: ?*anyopaque) !void {
         var i: usize = 0;
+        const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
         while (c.running and c.wayland.connected) : (i +%= 1) {
-            const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
             const surface = c.wayland.surface orelse return error.WaylandNotReady;
             if (i % 100_000 == 0) {
                 @branchHint(.unlikely);
@@ -54,6 +54,7 @@ pub const Charcoal = struct {
                 surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
                 surface.commit();
             }
+            // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
             try c.iterateTick(tick_ptr);
         }
     }
