@@ -32,8 +32,12 @@ pub const Box = struct {
         h: isize,
         pub const zero: Delta = .{ .x = 0, .y = 0, .w = 0, .h = 0 };
 
-        pub fn scale(s: isize) Delta {
+        pub fn vector(s: isize) Delta {
             return .{ .x = s, .y = s, .w = s * -2, .h = s * -2 };
+        }
+
+        pub fn wh(w: isize, h: isize) Delta {
+            return .{ .x = 0, .y = 0, .w = w, .h = h };
         }
 
         pub fn xywh(x: isize, y: isize, w: isize, h: isize) Delta {
@@ -91,11 +95,17 @@ pub const Box = struct {
         return .{ .x = x, .y = y, .w = r, .h = r };
     }
 
-    pub fn add(src: *Box, delta: Delta) void {
+    pub fn merge(src: *Box, delta: Delta) void {
         src.x = @intCast(@as(isize, @intCast(src.x)) + delta.x);
         src.y = @intCast(@as(isize, @intCast(src.y)) + delta.y);
         src.w = @intCast(@as(isize, @intCast(src.w)) + delta.w);
         src.h = @intCast(@as(isize, @intCast(src.h)) + delta.h);
+    }
+
+    pub fn add(src: Box, d: Delta) Box {
+        var box = src;
+        box.merge(d);
+        return box;
     }
 };
 
