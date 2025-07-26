@@ -54,6 +54,15 @@ pub const Charcoal = struct {
             }
         }
     }
+
+    pub fn createBuffer(c: Charcoal, box: Buffer.Box) !Buffer {
+        return try c.createBufferCapacity(box, box);
+    }
+
+    pub fn createBufferCapacity(c: Charcoal, box: Box, extra: Box) !Buffer {
+        const shm = c.wayland.shm orelse return error.NoWlShm;
+        return try .initCapacity(shm, box, extra, "charcoal-wlbuffer");
+    }
 };
 
 pub const Buffer = @import("Buffer.zig");
@@ -69,3 +78,5 @@ test {
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.charcoal);
+const Box = Buffer.Box;
