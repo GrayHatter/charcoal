@@ -37,8 +37,6 @@ pub const Charcoal = struct {
         while (c.running and c.wayland.connected) : (i +%= 1) {
             const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
             const surface = c.wayland.surface orelse return error.WaylandNotReady;
-            try c.iterate();
-
             if (i % 100_000 == 0) {
                 @branchHint(.unlikely);
                 if (i % 1_000_000 == 0) c.ui.background(buffer, .wh(buffer.width, buffer.height));
@@ -52,6 +50,7 @@ pub const Charcoal = struct {
                 surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
                 surface.commit();
             }
+            try c.iterate();
         }
     }
 
