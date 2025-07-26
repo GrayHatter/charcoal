@@ -33,6 +33,10 @@ pub const Charcoal = struct {
     }
 
     pub fn run(c: Charcoal) !void {
+        return try c.runTick(null);
+    }
+
+    pub fn runTick(c: Charcoal, tick_ptr: ?*anyopaque) !void {
         var i: usize = 0;
         while (c.running and c.wayland.connected) : (i +%= 1) {
             const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
@@ -50,7 +54,7 @@ pub const Charcoal = struct {
                 surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
                 surface.commit();
             }
-            try c.iterate();
+            try c.iterateTick(tick_ptr);
         }
     }
 
