@@ -90,6 +90,14 @@ pub fn event(ui: *Ui, evt: Event) void {
                 const chr: *Charcoal = @fieldParentPtr("ui", ui);
                 chr.wayland.toplevel.?.move(chr.wayland.seat.?, btn.serial);
             },
+            .motion => |mot| {
+                root.mMove(.fromFixed(
+                    @intFromEnum(mot.surface_x),
+                    @intFromEnum(mot.surface_y),
+                    false,
+                    .init(ui.hid.mods),
+                ), .zero);
+            },
             else => {},
         },
     }

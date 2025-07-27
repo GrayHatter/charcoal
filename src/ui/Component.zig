@@ -1,5 +1,5 @@
 vtable: VTable,
-box: Buffer.Box = undefined,
+box: Box = undefined,
 damaged: bool = false,
 redraw_req: bool = false,
 state: *anyopaque = undefined,
@@ -7,7 +7,7 @@ children: []Component,
 
 const Component = @This();
 
-pub fn init(comp: *Component, a: Allocator, box: Buffer.Box) InitError!void {
+pub fn init(comp: *Component, a: Allocator, box: Box) InitError!void {
     if (comp.vtable.init) |initV| {
         try initV(comp, a, box);
     } else for (comp.children) |*child| try child.init(a, box);
@@ -25,13 +25,13 @@ pub fn tick(comp: *Component, ptr: ?*anyopaque) void {
     } else for (comp.children) |*child| child.tick(ptr);
 }
 
-pub fn background(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
+pub fn background(comp: *Component, buffer: *const Buffer, box: Box) void {
     if (comp.vtable.background) |bg| {
         bg(comp, buffer, box);
     } else for (comp.children) |*child| child.background(buffer, box);
 }
 
-pub fn draw(comp: *Component, buffer: *const Buffer, box: Buffer.Box) void {
+pub fn draw(comp: *Component, buffer: *const Buffer, box: Box) void {
     // pre-set damaged = false so called fn can reset it if required
     comp.redraw_req = false;
     comp.damaged = false;
@@ -55,7 +55,7 @@ pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
     return false;
 }
 
-pub fn mMove(comp: *Component, mmove: Pointer.Movement, box: Buffer.Box) void {
+pub fn mMove(comp: *Component, mmove: Pointer.Motion, box: Box) void {
     if (comp.vtable.mmove) |mmoveV| {
         mmoveV(comp, mmove, box);
     } else for (comp.children) |*child| {
@@ -64,7 +64,7 @@ pub fn mMove(comp: *Component, mmove: Pointer.Movement, box: Buffer.Box) void {
     }
 }
 
-pub fn click(comp: *Component, clk: Pointer.Click, box: Buffer.Box) bool {
+pub fn click(comp: *Component, clk: Pointer.Click, box: Box) bool {
     if (comp.vtable.click) |clickV| {
         return clickV(comp, clk, box);
     } else for (comp.children) |*child| {
@@ -101,13 +101,13 @@ pub const VTable = struct {
     }
 };
 
-pub const Init = *const fn (*Component, Allocator, Buffer.Box) InitError!void;
+pub const Init = *const fn (*Component, Allocator, Box) InitError!void;
 pub const Raze = *const fn (*Component, Allocator) void;
 pub const Tick = *const fn (*Component, ?*anyopaque) void;
-pub const Background = *const fn (*Component, *const Buffer, Buffer.Box) void;
-pub const Draw = *const fn (*Component, *const Buffer, Buffer.Box) void;
+pub const Background = *const fn (*Component, *const Buffer, Box) void;
+pub const Draw = *const fn (*Component, *const Buffer, Box) void;
 pub const KeyPress = *const fn (*Component, KeyEvent) bool;
-pub const MMove = *const fn (*Component, Pointer.Movement) void;
+pub const MMove = *const fn (*Component, Pointer.Motion, Box) void;
 pub const Click = *const fn (*Component, Pointer.Click) bool;
 
 pub const InitError = error{
@@ -125,17 +125,44 @@ pub const KeyEvent = struct {
 };
 
 pub const Pointer = struct {
-    pub const Movement = struct {
+    pub const Motion = struct {
         up: bool,
-        x: isize,
-        y: isize,
+        x: i24,
+        y: i24,
         mods: Keymap.Modifiers,
+        fractional: struct {
+            x: u8,
+            y: u8,
+        },
+
+        pub fn fromFixed(x: i32, y: i32, up: bool, mods: Keymap.Modifiers) Motion {
+            return .{
+                .up = up,
+                .x = @as(i24, @intCast(x >> 8)),
+                .y = @as(i24, @intCast(y >> 8)),
+                .mods = mods,
+                .fractional = .{
+                    .x = @intCast(x & 0xff),
+                    .y = @intCast(y & 0xff),
+                },
+            };
+        }
+
+        pub fn format(m: Motion, _: []const u8, _: anytype, w: anytype) !void {
+            return w.print("Motion: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
+                m.x, m.y,
+                if (m.mods.ctrl) " ctrl" else "", if (m.mods.shift) " shift" else "", //
+                if (m.mods.alt) " alt" else "", //
+                m.x, @as(usize, m.fractional.x) * 100 / 265, //
+                m.y, @as(usize, m.fractional.y) * 100 / 265,
+            });
+        }
     };
     pub const Click = struct {
         up: bool,
         button: Button,
-        x: isize,
-        y: isize,
+        x: f32,
+        y: f32,
         mods: Keymap.Modifiers,
     };
     pub const Button = u8;
@@ -144,3 +171,4 @@ pub const Pointer = struct {
 const Allocator = @import("std").mem.Allocator;
 const Keymap = @import("../Keymap.zig");
 const Buffer = @import("../Buffer.zig");
+const Box = Buffer.Box;
