@@ -72,11 +72,13 @@ pub const Charcoal = struct {
 pub const Buffer = @import("Buffer.zig");
 pub const Ui = @import("Ui.zig");
 pub const Wayland = @import("Wayland.zig");
+pub const TrueType = @import("truetype.zig");
 
 test {
     _ = &Buffer;
     _ = &Ui;
     _ = &Wayland;
+    _ = &TrueType;
     _ = std.testing.refAllDecls(@This());
 }
 
