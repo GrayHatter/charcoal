@@ -1,6 +1,9 @@
 pub const ARGB = enum(u32) {
     transparent = 0x00000000,
     white = 0xffffffff,
+    light_gray = 0xffbbbbbb,
+    gray = 0xff888888,
+    dark_gray = 0xff444444,
     black = 0xff000000,
     red = 0xffff0000,
     green = 0xff00ff00,
