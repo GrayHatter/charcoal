@@ -36,6 +36,10 @@ pub const Box = struct {
             return .{ .x = s, .y = s, .w = s * -2, .h = s * -2 };
         }
 
+        pub fn xy(x: isize, y: isize) Delta {
+            return .{ .x = x, .y = y, .w = 0, .h = 0 };
+        }
+
         pub fn wh(w: isize, h: isize) Delta {
             return .{ .x = 0, .y = 0, .w = w, .h = h };
         }
@@ -71,10 +75,12 @@ pub const Box = struct {
         }
     };
 
+    /// Box.x + Box.w
     pub inline fn x2(b: Box) usize {
         return b.x + b.w;
     }
 
+    /// Box.y + Box.w
     pub inline fn y2(b: Box) usize {
         return b.y + b.h;
     }
@@ -106,6 +112,15 @@ pub const Box = struct {
         var box = src;
         box.merge(d);
         return box;
+    }
+
+    /// unstable api
+    pub fn within(box: Box, pos: Box) bool {
+        if (pos.x < box.x or pos.y < box.y) return false;
+        if (pos.x > box.w or pos.y > box.w) return false;
+        if (pos.w > 0 and pos.x2() > box.x2()) return false;
+        if (pos.y > 0 and pos.y2() > box.y2()) return false;
+        return true;
     }
 };
 
