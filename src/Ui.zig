@@ -14,7 +14,7 @@ pub const Event = union(enum) {
     pointer: Wayland.Pointer.Event,
 
     pub const Key = Component.KeyEvent;
-    pub const MMove = Component.Pointer.Movement;
+    pub const MMove = Component.Pointer.Motion;
     pub const Click = Component.Pointer.Click;
 };
 
@@ -44,7 +44,7 @@ pub fn background(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
 
 pub fn draw(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
-    if (root.damaged) {
+    if (root.damaged or root.redraw_req) {
         root.draw(buffer, box);
     }
 }
@@ -96,7 +96,7 @@ pub fn event(ui: *Ui, evt: Event) void {
                     @intFromEnum(mot.surface_y),
                     false,
                     .init(ui.hid.mods),
-                ), .zero);
+                ), root.box);
             },
             else => {},
         },
