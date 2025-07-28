@@ -130,6 +130,7 @@ pub const Pointer = struct {
         x: i24,
         y: i24,
         mods: Keymap.Modifiers,
+        /// base 2 fractional. Divide by 0xff to get dec fraction
         fractional: struct {
             x: u8,
             y: u8,
@@ -145,6 +146,16 @@ pub const Pointer = struct {
                     .x = @intCast(x & 0xff),
                     .y = @intCast(y & 0xff),
                 },
+            };
+        }
+
+        pub fn addOffset(m: Motion, x: i24, y: i24) Motion {
+            return .{
+                .up = m.up,
+                .x = m.x + x,
+                .y = m.y + y,
+                .mods = m.mods,
+                .fractional = m.fractional,
             };
         }
 
