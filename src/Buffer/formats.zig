@@ -20,6 +20,12 @@ pub const ARGB = enum(u32) {
     dark_slate_gray = 0xff354f52,
     charcoal = 0xff2f3e46,
 
+    sinopia = 0xffd03e06,
+    avocado = 0xff6d9607,
+    eerie_black = 0xff202020,
+    silver = 0xffcdcdcd,
+    cornsilk = 0xfffaf4d3,
+
     _,
 
     pub const MASK = struct {
