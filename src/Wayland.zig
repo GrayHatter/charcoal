@@ -150,4 +150,4 @@ const Charcoal = @import("charcoal.zig").Charcoal;
 const Keymap = @import("Keymap.zig");
 const Buffer = @import("Buffer.zig");
 const Ui = @import("Ui.zig");
-const listeners = @import("listeners.zig").Listeners;
+const listeners = @import("listeners.zig");
