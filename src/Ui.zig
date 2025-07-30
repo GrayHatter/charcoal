@@ -13,9 +13,9 @@ pub const Event = union(enum) {
     key: Wayland.Keyboard.Event,
     pointer: Wayland.Pointer.Event,
 
-    pub const Key = Component.KeyEvent;
-    pub const MMove = Component.Pointer.Motion;
-    pub const Click = Component.Pointer.Click;
+    pub const Key = Keyboard.Event;
+    pub const MMove = Pointer.Motion;
+    pub const Click = Pointer.Click;
 };
 
 pub fn init(ui: *Ui, comp: *Component, a: Allocator, b: Buffer.Box) Component.InitError!void {
@@ -31,9 +31,9 @@ pub fn raze(ui: *Ui, a: Allocator) void {
     ui.root = null;
 }
 
-pub fn tick(ui: Ui, ptr: ?*anyopaque) void {
+pub fn tick(ui: Ui, tik: usize, ptr: ?*anyopaque) void {
     if (ui.root) |root| {
-        root.tick(ptr);
+        root.tick(tik, ptr);
     }
 }
 
@@ -102,6 +102,74 @@ pub fn event(ui: *Ui, evt: Event) void {
         },
     }
 }
+
+pub const Keyboard = struct {
+    pub const Event = struct {
+        up: bool,
+        key: union(enum) {
+            char: u8,
+            ctrl: Keymap.Control,
+        },
+        mods: Keymap.Modifiers,
+    };
+};
+
+pub const Pointer = struct {
+    pub const Motion = struct {
+        up: bool,
+        x: i24,
+        y: i24,
+        mods: Keymap.Modifiers,
+        /// base 2 fractional. Divide by 0xff to get dec fraction
+        fractional: struct {
+            x: u8,
+            y: u8,
+        },
+
+        pub fn fromFixed(x: i32, y: i32, up: bool, mods: Keymap.Modifiers) Motion {
+            return .{
+                .up = up,
+                .x = @as(i24, @intCast(x >> 8)),
+                .y = @as(i24, @intCast(y >> 8)),
+                .mods = mods,
+                .fractional = .{
+                    .x = @intCast(x & 0xff),
+                    .y = @intCast(y & 0xff),
+                },
+            };
+        }
+
+        pub fn addOffset(m: Motion, x: i24, y: i24) Motion {
+            return .{
+                .up = m.up,
+                .x = m.x + x,
+                .y = m.y + y,
+                .mods = m.mods,
+                .fractional = m.fractional,
+            };
+        }
+
+        pub fn format(m: Motion, _: []const u8, _: anytype, w: anytype) !void {
+            return w.print("Motion: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
+                m.x, m.y,
+                if (m.mods.ctrl) " ctrl" else "", if (m.mods.shift) " shift" else "", //
+                if (m.mods.alt) " alt" else "", //
+                m.x, @as(usize, m.fractional.x) * 100 / 265, //
+                m.y, @as(usize, m.fractional.y) * 100 / 265,
+            });
+        }
+    };
+
+    pub const Click = struct {
+        up: bool,
+        button: Button,
+        x: f32,
+        y: f32,
+        mods: Keymap.Modifiers,
+    };
+
+    pub const Button = u8;
+};
 
 pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
     log.debug("newKeymap {} {}", .{ evt.keymap.fd, evt.keymap.size });

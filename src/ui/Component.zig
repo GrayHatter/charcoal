@@ -19,10 +19,10 @@ pub fn raze(comp: *Component, a: Allocator) void {
     } else for (comp.children) |*child| child.raze(a);
 }
 
-pub fn tick(comp: *Component, ptr: ?*anyopaque) void {
+pub fn tick(comp: *Component, tik: usize, ptr: ?*anyopaque) void {
     if (comp.vtable.tick) |tickV| {
-        tickV(comp, ptr);
-    } else for (comp.children) |*child| child.tick(ptr);
+        tickV(comp, tik, ptr);
+    } else for (comp.children) |*child| child.tick(tik, ptr);
 }
 
 pub fn background(comp: *Component, buffer: *const Buffer, box: Box) void {
@@ -103,7 +103,7 @@ pub const VTable = struct {
 
 pub const Init = *const fn (*Component, Allocator, Box) InitError!void;
 pub const Raze = *const fn (*Component, Allocator) void;
-pub const Tick = *const fn (*Component, ?*anyopaque) void;
+pub const Tick = *const fn (*Component, usize, ?*anyopaque) void;
 pub const Background = *const fn (*Component, *const Buffer, Box) void;
 pub const Draw = *const fn (*Component, *const Buffer, Box) void;
 pub const KeyPress = *const fn (*Component, KeyEvent) bool;
@@ -115,71 +115,12 @@ pub const InitError = error{
     UnableToInit,
 };
 
-pub const KeyEvent = struct {
-    up: bool,
-    key: union(enum) {
-        char: u8,
-        ctrl: Keymap.Control,
-    },
-    mods: Keymap.Modifiers,
-};
-
-pub const Pointer = struct {
-    pub const Motion = struct {
-        up: bool,
-        x: i24,
-        y: i24,
-        mods: Keymap.Modifiers,
-        /// base 2 fractional. Divide by 0xff to get dec fraction
-        fractional: struct {
-            x: u8,
-            y: u8,
-        },
-
-        pub fn fromFixed(x: i32, y: i32, up: bool, mods: Keymap.Modifiers) Motion {
-            return .{
-                .up = up,
-                .x = @as(i24, @intCast(x >> 8)),
-                .y = @as(i24, @intCast(y >> 8)),
-                .mods = mods,
-                .fractional = .{
-                    .x = @intCast(x & 0xff),
-                    .y = @intCast(y & 0xff),
-                },
-            };
-        }
-
-        pub fn addOffset(m: Motion, x: i24, y: i24) Motion {
-            return .{
-                .up = m.up,
-                .x = m.x + x,
-                .y = m.y + y,
-                .mods = m.mods,
-                .fractional = m.fractional,
-            };
-        }
-
-        pub fn format(m: Motion, _: []const u8, _: anytype, w: anytype) !void {
-            return w.print("Motion: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
-                m.x, m.y,
-                if (m.mods.ctrl) " ctrl" else "", if (m.mods.shift) " shift" else "", //
-                if (m.mods.alt) " alt" else "", //
-                m.x, @as(usize, m.fractional.x) * 100 / 265, //
-                m.y, @as(usize, m.fractional.y) * 100 / 265,
-            });
-        }
-    };
-    pub const Click = struct {
-        up: bool,
-        button: Button,
-        x: f32,
-        y: f32,
-        mods: Keymap.Modifiers,
-    };
-    pub const Button = u8;
-};
+const Pointer = Ui.Pointer;
+const Motion = Pointer.Motion;
+const KeyEvent = Ui.Keyboard.Event;
 
 const Allocator = @import("std").mem.Allocator;
 const Keymap = @import("../Keymap.zig");
 const Buffer = @import("../Buffer.zig");
+const Ui = @import("../Ui.zig");
 const Box = Buffer.Box;

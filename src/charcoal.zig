@@ -22,14 +22,14 @@ pub const Charcoal = struct {
     }
 
     pub fn iterate(c: Charcoal) !void {
-        try c.iterateTick(null);
+        try c.iterateTick(null, null);
     }
 
-    pub fn iterateTick(c: Charcoal, tick_ptr: ?*anyopaque) !void {
+    pub fn iterateTick(c: Charcoal, tik: ?usize, tick_ptr: ?*anyopaque) !void {
         if (!c.wayland.connected) return error.WaylandExited;
         try c.wayland.iterate();
 
-        c.ui.tick(tick_ptr);
+        c.ui.tick(tik orelse maxInt(usize), tick_ptr);
     }
 
     pub fn run(c: *Charcoal) !void {
@@ -55,7 +55,7 @@ pub const Charcoal = struct {
                 surface.commit();
             }
             // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
-            try c.iterateTick(tick_ptr);
+            try c.iterateTick(i, tick_ptr);
         }
     }
 
@@ -86,3 +86,4 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const log = std.log.scoped(.charcoal);
 const Box = Buffer.Box;
+const maxInt = std.math.maxInt;

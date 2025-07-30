@@ -77,26 +77,26 @@ fn dmabufEvent(_: *Zwp.LinuxDmabufV1, evt: Zwp.LinuxDmabufV1.Event, _: *Wayland)
     }
 }
 
-fn seatEvent(s: *wl.Seat, evt: wl.Seat.Event, ptr: *Wayland) void {
+fn seatEvent(s: *wl.Seat, evt: wl.Seat.Event, c_wl: *Wayland) void {
     switch (evt) {
         .capabilities => |cap| {
             if (cap.capabilities.pointer) {
-                ptr.hid.pointer = s.getPointer() catch return;
-                ptr.hid.pointer.?.setListener(*Ui, pointerEvent, ptr.getUi());
+                c_wl.hid.pointer = s.getPointer() catch return;
+                c_wl.hid.pointer.?.setListener(*Ui, pointerEvent, c_wl.getUi());
             }
             if (cap.capabilities.keyboard) {
-                ptr.hid.keyboard = s.getKeyboard() catch return;
-                ptr.hid.keyboard.?.setListener(*Ui, keyEvent, ptr.getUi());
+                c_wl.hid.keyboard = s.getKeyboard() catch return;
+                c_wl.hid.keyboard.?.setListener(*Ui, keyEvent, c_wl.getUi());
             }
         },
         .name => |name| log.debug("name {s}", .{std.mem.span(name.name)}),
     }
 }
 
-fn keyEvent(_: *wl.Keyboard, evt: wl.Keyboard.Event, ptr: *Ui) void {
+fn keyEvent(_: *wl.Keyboard, evt: wl.Keyboard.Event, ui: *Ui) void {
     switch (evt) {
-        .key, .modifiers, .enter, .leave => ptr.event(.{ .key = evt }),
-        .keymap => ptr.newKeymap(evt),
+        .key, .modifiers, .enter, .leave => ui.event(.{ .key = evt }),
+        .keymap => ui.newKeymap(evt),
         //.repeat_info => {},
         else => {
             log.debug("keyevent other {}", .{evt});
