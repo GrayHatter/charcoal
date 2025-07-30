@@ -56,6 +56,7 @@ pub const Charcoal = struct {
             }
             // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
             try c.iterateTick(i, tick_ptr);
+            std.Thread.sleep(16_000_000);
         }
     }
 
