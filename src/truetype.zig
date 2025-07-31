@@ -135,7 +135,21 @@ pub const GlyphCache = struct {
         if (!gly.found_existing) {
             const codepoint = gc.ttf.codepointGlyphIndex(@intCast(char)) orelse return error.GlpyhNotFound;
             var bm: std.ArrayListUnmanaged(u8) = .{};
-            const bounds = try gc.ttf.glyphBitmap(alloc, &bm, codepoint, gc.scale_horz, gc.scale_vert);
+            const bounds = gc.ttf.glyphBitmap(alloc, &bm, codepoint, gc.scale_horz, gc.scale_vert) catch |err|
+                switch (err) {
+                    error.GlyphNotFound => GlyphBitmap{
+                        .width = @intFromFloat(@ceil(@as(
+                            f32,
+                            @floatFromInt(
+                                gc.ttf.glyphHMetrics(codepoint).advance_width,
+                            ),
+                        ) * gc.scale_horz)),
+                        .height = 0,
+                        .off_x = 0,
+                        .off_y = 0,
+                    },
+                    else => return err,
+                };
             gly.value_ptr.* = .{
                 .pixels = try bm.toOwnedSlice(alloc),
                 .width = bounds.width,
