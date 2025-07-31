@@ -108,7 +108,7 @@ fn pointerEvent(_: *wl.Pointer, evt: wl.Pointer.Event, ptr: *Ui) void {
     switch (evt) {
         .enter => |enter| {
             log.debug(
-                "ptr enter x {d: <8} y {d: <8}\n",
+                "ptr enter x {d: <8} y {d: <8}",
                 .{ enter.surface_x.toInt(), enter.surface_y.toInt() },
             );
             ptr.event(.{ .pointer = evt });
@@ -116,7 +116,7 @@ fn pointerEvent(_: *wl.Pointer, evt: wl.Pointer.Event, ptr: *Ui) void {
         .leave => |leave| log.debug("ptr leave {}", .{leave}),
         .motion => |motion| {
             log.debug(
-                "mm        x {d: <8} y {d: <8}\n",
+                "mm        x {d: <8} y {d: <8}",
                 .{ motion.surface_x.toInt(), motion.surface_y.toInt() },
             );
             ptr.event(.{ .pointer = evt });
