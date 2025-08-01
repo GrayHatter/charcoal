@@ -11,6 +11,8 @@ pub const Control = enum(u16) {
     enter = 28,
     meta = 125,
 
+    delete_word,
+
     arrow_up = 103,
     arrow_down = 108,
     arrow_left = 105,
@@ -136,7 +138,31 @@ pub fn ascii(_: Keymap, key: u32, mods: Modifiers) ?u8 {
         code[0];
 }
 
-pub fn ctrl(_: Keymap, key: u32) Control {
+pub fn ctrlMods(key: u32, mods: Modifiers) Control {
+    const code: [4]?Control = switch (key) {
+        17 => .{ null, null, .delete_word, null },
+        else => {
+            std.debug.print("Unable to translate ctrlMod {}\n", .{key});
+            return .UNKNOWN;
+        },
+    };
+
+    const ctrlM: ?Control = if (mods.shift)
+        code[1]
+    else if (mods.ctrl)
+        code[2]
+    else if (mods.alt)
+        code[3]
+    else
+        code[0];
+
+    return ctrlM orelse {
+        std.debug.print("Unable to translate ctrlMod {}\n", .{key});
+        return .UNKNOWN;
+    };
+}
+
+pub fn ctrl(_: Keymap, key: u32, mods: Modifiers) Control {
     return switch (key) {
         2...11 => .ascii_char,
         29 => .ctrl_left,
@@ -151,6 +177,7 @@ pub fn ctrl(_: Keymap, key: u32) Control {
         105 => .arrow_left,
         106 => .arrow_right,
         15 => .tab,
+        17 => ctrlMods(key, mods),
         else => {
             std.debug.print("Unable to translate  ctrl {}\n", .{key});
             return .UNKNOWN;

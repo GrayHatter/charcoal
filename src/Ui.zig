@@ -75,7 +75,7 @@ pub fn event(ui: *Ui, evt: Event) void {
                     .key = if (ui.keymap.ascii(key.key, mods)) |asc|
                         .{ .char = asc }
                     else
-                        .{ .ctrl = ui.keymap.ctrl(key.key) },
+                        .{ .ctrl = ui.keymap.ctrl(key.key, mods) },
                     .mods = mods,
                 });
             },
