@@ -69,7 +69,7 @@ pub fn event(ui: *Ui, evt: Event) void {
                         log.debug("unexpected keyboard key state {}", .{unk});
                     },
                 }
-                const mods: Keymap.Modifiers = .init(ui.hid.mods);
+                const mods: KMod = .init(ui.hid.mods);
                 _ = root.keyPress(.{
                     .up = key.state == .released,
                     .key = if (ui.keymap.ascii(key.key, mods)) |asc|
@@ -110,7 +110,7 @@ pub const Keyboard = struct {
             char: u8,
             ctrl: Keymap.Control,
         },
-        mods: Keymap.Modifiers,
+        mods: KMod,
     };
 };
 
@@ -119,14 +119,14 @@ pub const Pointer = struct {
         up: bool,
         x: i24,
         y: i24,
-        mods: Keymap.Modifiers,
+        mods: KMod,
         /// base 2 fractional. Divide by 0xff to get dec fraction
         fractional: struct {
             x: u8,
             y: u8,
         },
 
-        pub fn fromFixed(x: i32, y: i32, up: bool, mods: Keymap.Modifiers) Motion {
+        pub fn fromFixed(x: i32, y: i32, up: bool, mods: KMod) Motion {
             return .{
                 .up = up,
                 .x = @as(i24, @intCast(x >> 8)),
@@ -165,7 +165,7 @@ pub const Pointer = struct {
         button: Button,
         x: f32,
         y: f32,
-        mods: Keymap.Modifiers,
+        mods: KMod,
     };
 
     pub const Button = u8;
@@ -187,4 +187,5 @@ const charcoal = @import("charcoal.zig");
 const Charcoal = charcoal.Charcoal;
 const Wayland = @import("Wayland.zig");
 const Keymap = @import("Keymap.zig");
+const KMod = Keymap.KMod;
 const Buffer = @import("Buffer.zig");

@@ -2,11 +2,16 @@ data: ?[]const u8 = null,
 
 const Keymap = @This();
 
+const AModded = [4]?u8;
+const CModded = [4]?Control;
+
 pub const Control = enum(u16) {
     escape = 1,
     ctrl_left = 29,
+    alt_left = 56,
     shift_left = 42,
     shift_right = 54,
+
     backspace = 14,
     enter = 28,
     meta = 125,
@@ -24,17 +29,60 @@ pub const Control = enum(u16) {
     UNKNOWN = 0,
 };
 
-pub const Modifiers = struct {
+pub const KMod = struct {
     shift: bool = false,
     ctrl: bool = false,
     alt: bool = false,
 
-    pub fn init(code: u32) Modifiers {
+    pub const Wrapped = enum {
+        none,
+        shf,
+        ctl,
+        alt,
+        shf_ctl,
+        shf_alt,
+        ctl_alt,
+        shf_ctl_alt,
+    };
+
+    pub const ControlW = union(Wrapped) {
+        none: Control,
+        shf: Control,
+        ctl: Control,
+        alt: Control,
+        shf_ctl: Control,
+        shf_alt: Control,
+        ctl_alt: Control,
+        shf_ctl_alt: Control,
+    };
+
+    pub fn init(code: u32) KMod {
         return .{
             .shift = code & 1 > 0,
             .ctrl = code & 4 > 0,
             .alt = code & 8 > 0,
         };
+    }
+
+    pub fn wrappedCtrl(km: KMod, ct: CModded) ControlW {
+        if (km.shift) {
+            return if (km.ctrl and km.alt)
+                .{ .shf_ctl_alt = ct[1] }
+            else if (km.ctrl)
+                .{ .shf_ctl = ct[1] }
+            else if (km.alt)
+                .{ .shf_alt = ct[1] }
+            else
+                .{ .shf = ct[1] };
+        } else if (km.ctrl) {
+            return if (km.alt)
+                .{ .ctl_alt = ct[2] }
+            else
+                .{ .ctl = ct[2] };
+        } else if (km.alt) {
+            return .{ .alt = ct[3] };
+        }
+        return .{ .none = ct[0] };
     }
 };
 
@@ -62,8 +110,8 @@ fn parse(_: []const u8) !void {
     return error.NotImplemented;
 }
 
-pub fn ascii(_: Keymap, key: u32, mods: Modifiers) ?u8 {
-    const code: [4]?u8 = switch (key) {
+pub fn ascii(_: Keymap, key: u32, mods: KMod) ?u8 {
+    const code: AModded = switch (key) {
         40 => .{ '\'', '"', '\'', '\'' },
         51 => .{ ',', '<', ',', ',' },
         52 => .{ '.', '>', '.', '.' },
@@ -122,7 +170,7 @@ pub fn ascii(_: Keymap, key: u32, mods: Modifiers) ?u8 {
         108 => .{ null, null, null, null }, // Down,
         105 => .{ null, null, null, null }, // Left,
         106 => .{ null, null, null, null }, // Right,
-        1 => .{ null, null, null, null }, //
+        1 => .{ null, null, null, null }, // Escape,
         else => {
             std.debug.print("Unable to translate ascii {}\n", .{key});
             return null;
@@ -138,8 +186,8 @@ pub fn ascii(_: Keymap, key: u32, mods: Modifiers) ?u8 {
         code[0];
 }
 
-pub fn ctrlMods(key: u32, mods: Modifiers) Control {
-    const code: [4]?Control = switch (key) {
+pub fn ctrlMods(key: u32, mods: KMod) Control {
+    const code: CModded = switch (key) {
         17 => .{ null, null, .delete_word, null },
         else => {
             std.debug.print("Unable to translate ctrlMod {}\n", .{key});
@@ -162,13 +210,14 @@ pub fn ctrlMods(key: u32, mods: Modifiers) Control {
     };
 }
 
-pub fn ctrl(_: Keymap, key: u32, mods: Modifiers) Control {
+pub fn ctrl(_: Keymap, key: u32, mods: KMod) Control {
     return switch (key) {
         2...11 => .ascii_char,
         29 => .ctrl_left,
-        42 => .shift_left, // Left Shift
-        54 => .shift_right, // Right Shift
-        14 => .backspace, // Backspace
+        42 => .shift_left,
+        54 => .shift_right,
+        56 => .alt_left,
+        14 => .backspace,
         28 => .enter, // Enter
         125 => .meta, // Meta
         1 => .escape,
@@ -183,6 +232,10 @@ pub fn ctrl(_: Keymap, key: u32, mods: Modifiers) Control {
             return .UNKNOWN;
         },
     };
+}
+
+test {
+    _ = &std.testing.refAllDecls(@This());
 }
 
 const std = @import("std");
