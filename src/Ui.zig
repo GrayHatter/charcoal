@@ -63,8 +63,12 @@ pub fn event(ui: *Ui, evt: Event) void {
         .key => |k| switch (k) {
             .key => |key| {
                 switch (key.state) {
-                    .pressed => {},
-                    .released => {},
+                    .pressed => {
+                        log.debug("keyboard key pressed {}", .{key.key});
+                    },
+                    .released => {
+                        log.debug("keyboard key released {}", .{key.key});
+                    },
                     else => |unk| {
                         log.debug("unexpected keyboard key state {}", .{unk});
                     },
