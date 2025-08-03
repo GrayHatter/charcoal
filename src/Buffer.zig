@@ -10,7 +10,7 @@ capacity: struct {
     height: u32,
 },
 
-damaged: Box = .zero,
+damage: Box = .zero,
 
 const Buffer = @This();
 
@@ -176,9 +176,19 @@ pub fn resize(b: *Buffer, new: Box) !void {
     b.height = @intCast(new.h);
 }
 
-pub fn getDamaged(b: *Buffer) Box {
-    defer b.damaged = .zero;
-    return b.damaged;
+pub fn addDamage(b: *Buffer, box: Box) void {
+    b.damage = .{
+        .x = @min(b.damage.x, box.x),
+        .y = @min(b.damage.y, box.y),
+        .w = @max(b.damage.w, box.x2()),
+        .h = @max(b.damage.h, box.y2()),
+    };
+}
+
+pub fn getDamage(b: *Buffer) ?Box {
+    if (b.damage.x == 0 and b.damage.y == 0 and b.damage.w == 0 and b.damage.h == 0) return null;
+    defer b.damage = .zero;
+    return b.damage;
 }
 
 fn rowSlice(b: Buffer, y: usize) []u32 {
@@ -194,7 +204,8 @@ pub fn draw(b: Buffer, box: Box, src: []const u32) void {
     }
 }
 
-pub fn drawRectangle(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawRectangle(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
@@ -211,7 +222,8 @@ pub fn drawRectangle(b: Buffer, T: type, box: Box, ecolor: T) void {
     @memset(bottom[box.x..width], color);
 }
 
-pub fn drawRectangleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawRectangleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
@@ -223,7 +235,8 @@ pub fn drawRectangleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
     }
 }
 
-pub fn drawRectangleFillMix(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawRectangleFillMix(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     //const width = box.x + box.w;
     const height = box.y + box.h;
     //const color: u32 = @intFromEnum(ecolor);
@@ -237,7 +250,8 @@ pub fn drawRectangleFillMix(b: Buffer, T: type, box: Box, ecolor: T) void {
     }
 }
 
-pub fn drawRectangleRounded(b: Buffer, T: type, box: Box, base_r: f64, ecolor: T) void {
+pub fn drawRectangleRounded(b: *Buffer, T: type, box: Box, base_r: f64, ecolor: T) void {
+    b.addDamage(box);
     const r: f64 = base_r - 0.5;
     const color: u32 = @intFromEnum(ecolor);
     const radius: usize = @intFromFloat(base_r);
@@ -284,7 +298,8 @@ pub fn drawRectangleRounded(b: Buffer, T: type, box: Box, base_r: f64, ecolor: T
     @memset(bottom[box.x + radius .. box.x2() - radius], color);
 }
 
-pub fn drawRectangleRoundedFill(b: Buffer, T: type, box: Box, base_r: f64, ecolor: T) void {
+pub fn drawRectangleRoundedFill(b: *Buffer, T: type, box: Box, base_r: f64, ecolor: T) void {
+    b.addDamage(box);
     const r: f64 = base_r - 0.5;
     const radius: usize = @intFromFloat(base_r);
     const color: u32 = @intFromEnum(ecolor);
@@ -332,7 +347,8 @@ pub fn drawRectangleRoundedFill(b: Buffer, T: type, box: Box, base_r: f64, ecolo
     @memset(bottom[box.x + radius .. box.x2() - radius], color);
 }
 
-pub fn drawPoint(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawPoint(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     assert(box.w < 2);
     assert(box.h < 2);
     const color: u32 = @intFromEnum(ecolor);
@@ -340,7 +356,8 @@ pub fn drawPoint(b: Buffer, T: type, box: Box, ecolor: T) void {
     row[box.x] = color;
 }
 
-pub fn drawCircle(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawCircle(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     const color: u32 = @intFromEnum(ecolor);
     const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
     for (box.y..box.y + box.w, 0..) |dst_y, y| {
@@ -355,7 +372,8 @@ pub fn drawCircle(b: Buffer, T: type, box: Box, ecolor: T) void {
 }
 
 /// TODO add support for center vs corner alignment
-pub fn drawCircleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     const color: u32 = @intFromEnum(ecolor);
     const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
     for (box.y..box.y + box.w, 0..) |dst_y, y| {
@@ -369,7 +387,8 @@ pub fn drawCircleFill(b: Buffer, T: type, box: Box, ecolor: T) void {
     }
 }
 
-pub fn drawCircleCentered(b: Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawCircleCentered(b: *Buffer, T: type, box: Box, ecolor: T) void {
+    b.addDamage(box);
     assert(box.h == box.w);
     assert(box.x > (box.w - 1) / 2);
     assert(box.y > (box.h - 1) / 2);
@@ -389,7 +408,8 @@ pub fn drawCircleCentered(b: Buffer, T: type, box: Box, ecolor: T) void {
     }
 }
 
-pub fn drawFont(b: Buffer, T: type, color: T, box: Box, src: []const u8) void {
+pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
+    b.addDamage(box);
     for (0..box.h, box.y..) |sy, dy| {
         const row = b.rowSlice(dy);
         for (box.x..box.x + box.w, 0..) |dx, sx| {

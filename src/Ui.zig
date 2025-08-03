@@ -37,20 +37,26 @@ pub fn tick(ui: Ui, tik: usize, ptr: ?*anyopaque) void {
     }
 }
 
-pub fn background(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+pub fn background(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
     root.background(buffer, box);
 }
 
-pub fn draw(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+pub fn draw(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
-    if (root.damaged or root.redraw_req) {
+    if (root.draw_needed) {
         root.draw(buffer, box);
     }
 }
 
-pub fn redraw(ui: Ui, buffer: *const Buffer, box: Buffer.Box) void {
+fn setDraw(cm: *Ui.Component) void {
+    for (cm.children) |*c| c.draw_needed = true;
+    cm.draw_needed = true;
+}
+
+pub fn redraw(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
+    setDraw(root);
     root.draw(buffer, box);
 }
 

@@ -1,7 +1,6 @@
 vtable: VTable,
 box: Box = undefined,
-damaged: bool = false,
-redraw_req: bool = false,
+draw_needed: bool = true,
 state: *anyopaque = undefined,
 children: []Component,
 
@@ -25,16 +24,13 @@ pub fn tick(comp: *Component, tik: usize, ptr: ?*anyopaque) void {
     } else for (comp.children) |*child| child.tick(tik, ptr);
 }
 
-pub fn background(comp: *Component, buffer: *const Buffer, box: Box) void {
+pub fn background(comp: *Component, buffer: *Buffer, box: Box) void {
     if (comp.vtable.background) |bg| {
         bg(comp, buffer, box);
     } else for (comp.children) |*child| child.background(buffer, box);
 }
 
-pub fn draw(comp: *Component, buffer: *const Buffer, box: Box) void {
-    // pre-set damaged = false so called fn can reset it if required
-    comp.redraw_req = false;
-    comp.damaged = false;
+pub fn draw(comp: *Component, buffer: *Buffer, box: Box) void {
     if (comp.vtable.draw) |drawV| {
         drawV(comp, buffer, box);
     } else for (comp.children) |*child| {
@@ -47,9 +43,10 @@ pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
         return kp(comp, evt);
     } else for (comp.children) |*child| {
         if (child.keyPress(evt)) {
-            comp.damaged = child.damaged or comp.damaged;
+            comp.draw_needed = child.draw_needed or comp.draw_needed;
             return true;
         }
+        comp.draw_needed = child.draw_needed or comp.draw_needed;
     }
 
     return false;
@@ -60,7 +57,7 @@ pub fn mMove(comp: *Component, mmove: Pointer.Motion, box: Box) void {
         mmoveV(comp, mmove, box);
     } else for (comp.children) |*child| {
         child.mMove(mmove, box);
-        comp.damaged = child.damaged or comp.damaged;
+        comp.draw_needed = child.draw_needed or comp.draw_needed;
     }
 }
 
@@ -69,7 +66,7 @@ pub fn click(comp: *Component, clk: Pointer.Click, box: Box) bool {
         return clickV(comp, clk, box);
     } else for (comp.children) |*child| {
         if (child.click(clk, box)) {
-            comp.damaged = child.damaged or comp.damaged;
+            comp.draw_needed = child.draw_needed or comp.draw_needed;
             return true;
         }
     }
@@ -104,8 +101,8 @@ pub const VTable = struct {
 pub const Init = *const fn (*Component, Allocator, Box) InitError!void;
 pub const Raze = *const fn (*Component, Allocator) void;
 pub const Tick = *const fn (*Component, usize, ?*anyopaque) void;
-pub const Background = *const fn (*Component, *const Buffer, Box) void;
-pub const Draw = *const fn (*Component, *const Buffer, Box) void;
+pub const Background = *const fn (*Component, *Buffer, Box) void;
+pub const Draw = *const fn (*Component, *Buffer, Box) void;
 pub const KeyPress = *const fn (*Component, KeyEvent) bool;
 pub const MMove = *const fn (*Component, Pointer.Motion, Box) void;
 pub const Click = *const fn (*Component, Pointer.Click) bool;

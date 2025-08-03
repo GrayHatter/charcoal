@@ -39,7 +39,13 @@ pub const Charcoal = struct {
     pub fn runTick(c: *Charcoal, tick_ptr: ?*anyopaque) !void {
         var i: usize = 0;
         const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
-        while (c.running and c.wayland.connected) : (i +%= 1) {
+        c.ui.background(buffer, .wh(buffer.width, buffer.height));
+        c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
+        while (c.running and c.wayland.connected) : ({
+            try c.iterateTick(i, tick_ptr);
+            std.Thread.sleep(16_000_000);
+            i +%= 1;
+        }) {
             const surface = c.wayland.surface orelse return error.WaylandNotReady;
             if (i % 100_000 == 0) {
                 @branchHint(.unlikely);
@@ -50,13 +56,12 @@ pub const Charcoal = struct {
                 surface.commit();
             } else {
                 c.ui.draw(buffer, .wh(buffer.width, buffer.height));
+                const dmg = buffer.getDamage() orelse continue;
                 surface.attach(buffer.buffer, 0, 0);
-                surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
+                surface.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
                 surface.commit();
             }
             // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
-            try c.iterateTick(i, tick_ptr);
-            std.Thread.sleep(16_000_000);
         }
     }
 
