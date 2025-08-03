@@ -124,6 +124,17 @@ pub const Box = struct {
     }
 };
 
+pub const Direction = enum {
+    north,
+    north_east,
+    east,
+    south_east,
+    south,
+    south_west,
+    west,
+    north_west,
+};
+
 pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
     return try initCapacity(shm, box, box, name);
 }
@@ -204,13 +215,53 @@ pub fn draw(b: Buffer, box: Box, src: []const u32) void {
     }
 }
 
+pub fn copy(b: Buffer, T: type, box: Box, src: []const T) void {
+    for (0..box.h, box.y..box.y + box.h) |sy, dy| {
+        @memcpy(
+            b.rowSlice(dy)[box.x..][0..box.w],
+            @as([]const u32, @ptrCast(src[sy * box.w ..][0..box.w])),
+        );
+    }
+}
+
+pub fn drawLine(b: *Buffer, T: type, box: Box, color: T) void {
+    assert(box.h <= 1);
+    const row = b.rowSlice(box.y);
+    @memset(row[box.x..box.x2()], @intFromEnum(color));
+}
+
+pub fn drawLineV(b: *Buffer, T: type, box: Box, color: T) void {
+    assert(box.w <= 1);
+    for (box.y..box.y2()) |y| {
+        b.rowSlice(y)[box.x] = @intFromEnum(color);
+    }
+}
+
+pub fn drawEmboss(b: *Buffer, T: type, box: Box, direction: Direction, high: T, low: T) void {
+    switch (direction) {
+        .north, .north_west => {
+            b.drawLine(T, .xywh(box.x, box.y, box.w, 1), low);
+            b.drawLineV(T, .xywh(box.x, box.y, 1, box.h), low);
+            b.drawLine(T, .xywh(box.x + 1, box.y2(), box.w, 1), high);
+            b.drawLineV(T, .xywh(box.x2(), box.y + 1, 1, box.h), high);
+        },
+        .south, .south_east => {
+            b.drawLine(T, .xywh(box.x, box.y, box.w, 1), high);
+            b.drawLineV(T, .xywh(box.x, box.y, 1, box.h), high);
+            b.drawLine(T, .xywh(box.x, box.y2(), box.w, 1), low);
+            b.drawLineV(T, .xywh(box.x2(), box.y + 1, 1, box.h), low);
+        },
+        else => unreachable,
+    }
+}
+
 pub fn drawRectangle(b: *Buffer, T: type, box: Box, ecolor: T) void {
     b.addDamage(box);
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
-    assert(box.w > 3);
-    assert(box.h > 3);
+    assert(box.w > 2);
+    assert(box.h > 2);
     for (box.y + 1..height - 1) |y| {
         const row = b.rowSlice(y);
         row[box.x] = color;
