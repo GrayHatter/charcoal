@@ -4,6 +4,7 @@ hid: struct {
     mods: u32 = 0,
 } = .{},
 active_buffer: ?*Buffer = null,
+frame_rate: usize = 60,
 
 const Ui = @This();
 

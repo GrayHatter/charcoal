@@ -37,15 +37,19 @@ pub const Charcoal = struct {
     }
 
     pub fn runTick(c: *Charcoal, tick_ptr: ?*anyopaque) !void {
+        var timer: std.time.Timer = try .start();
         var i: usize = 0;
-        const buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
+        var sleep_ns = 1_000_000_000 / c.ui.frame_rate;
+        var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
         c.ui.background(buffer, .wh(buffer.width, buffer.height));
         c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
         while (c.running and c.wayland.connected) : ({
             try c.iterateTick(i, tick_ptr);
-            std.Thread.sleep(16_000_000);
+            sleep_ns = (1_000_000_000 / c.ui.frame_rate) -| timer.lap();
+            std.Thread.sleep(sleep_ns);
             i +%= 1;
         }) {
+            buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
             const surface = c.wayland.surface orelse return error.WaylandNotReady;
             if (i % 100_000 == 0) {
                 @branchHint(.unlikely);
