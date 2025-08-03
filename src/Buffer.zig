@@ -356,7 +356,7 @@ pub fn drawPoint(b: *Buffer, T: type, box: Box, ecolor: T) void {
     row[box.x] = color;
 }
 
-pub fn drawCircle(b: *Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
     b.addDamage(box);
     const color: u32 = @intFromEnum(ecolor);
     const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
@@ -372,7 +372,7 @@ pub fn drawCircle(b: *Buffer, T: type, box: Box, ecolor: T) void {
 }
 
 /// TODO add support for center vs corner alignment
-pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
+pub fn drawCircle(b: *Buffer, T: type, box: Box, ecolor: T) void {
     b.addDamage(box);
     const color: u32 = @intFromEnum(ecolor);
     const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
