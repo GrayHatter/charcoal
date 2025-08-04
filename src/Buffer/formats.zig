@@ -71,7 +71,7 @@ pub const ARGB = enum(u32) {
 
     pub fn mix(src: ARGB, dest: *ARGB) void {
         const p: *u32 = @ptrCast(dest);
-        src.mix(p);
+        src.mixInt(p);
     }
 
     pub fn mixInt(src: ARGB, dest: *u32) void {
