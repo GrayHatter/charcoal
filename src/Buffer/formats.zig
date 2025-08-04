@@ -69,7 +69,12 @@ pub const ARGB = enum(u32) {
         return @enumFromInt(color & mask);
     }
 
-    pub fn mix(src: ARGB, dest: *u32) void {
+    pub fn mix(src: ARGB, dest: *ARGB) void {
+        const p: *u32 = @ptrCast(dest);
+        src.mix(p);
+    }
+
+    pub fn mixInt(src: ARGB, dest: *u32) void {
         const alp: u32 = (src.int() & MASK.A) >> SHIFT.A;
         const red: u32 = (src.int() & MASK.R) >> SHIFT.R;
         const gre: u32 = (src.int() & MASK.G) >> SHIFT.G;

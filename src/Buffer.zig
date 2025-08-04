@@ -296,7 +296,7 @@ pub fn drawRectangleFillMix(b: *Buffer, T: type, box: Box, ecolor: T) void {
     for (box.y..height) |y| {
         const row = b.rowSlice(y);
         for (box.x..box.x2()) |x| {
-            ecolor.mix(&row[x]);
+            ecolor.mixInt(&row[x]);
         }
     }
 }
@@ -467,7 +467,7 @@ pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
             const p: u8 = src[sy * box.w + sx];
             if (p == 0) continue;
             const color2 = color.alpha(p);
-            color2.mix(&row[dx]);
+            color2.mixInt(&row[dx]);
         }
     }
 }
