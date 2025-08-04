@@ -260,8 +260,8 @@ pub fn drawRectangle(b: *Buffer, T: type, box: Box, ecolor: T) void {
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
-    assert(box.w > 2);
-    assert(box.h > 2);
+    assert(box.w > 1);
+    assert(box.h > 1);
     for (box.y + 1..height - 1) |y| {
         const row = b.rowSlice(y);
         row[box.x] = color;
