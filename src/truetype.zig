@@ -119,14 +119,15 @@ pub const GlyphBitmapExt = struct {
 pub const GlyphCache = struct {
     ttf: *const TrueType,
     map: std.AutoHashMapUnmanaged(u21, GlyphBitmapExt) = .{},
-    scale_vert: f32,
-    scale_horz: f32,
+    scale: struct {
+        x: f32,
+        y: f32,
+    },
 
     pub fn init(ttf: *const TrueType, size: f32) GlyphCache {
         return .{
             .ttf = ttf,
-            .scale_vert = size,
-            .scale_horz = size,
+            .scale = .{ .x = size, .y = size },
         };
     }
 
@@ -135,7 +136,7 @@ pub const GlyphCache = struct {
         if (!gly.found_existing) {
             const codepoint = gc.ttf.codepointGlyphIndex(@intCast(char)) orelse return error.GlpyhNotFound;
             var bm: std.ArrayListUnmanaged(u8) = .{};
-            const bounds = gc.ttf.glyphBitmap(alloc, &bm, codepoint, gc.scale_horz, gc.scale_vert) catch |err|
+            const bounds = gc.ttf.glyphBitmap(alloc, &bm, codepoint, gc.scale.x, gc.scale.y) catch |err|
                 switch (err) {
                     error.GlyphNotFound => GlyphBitmap{
                         .width = @intFromFloat(@ceil(@as(
@@ -143,7 +144,7 @@ pub const GlyphCache = struct {
                             @floatFromInt(
                                 gc.ttf.glyphHMetrics(codepoint).advance_width,
                             ),
-                        ) * gc.scale_horz)),
+                        ) * gc.scale.x)),
                         .height = 0,
                         .off_x = 0,
                         .off_y = 0,
