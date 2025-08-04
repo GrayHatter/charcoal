@@ -215,6 +215,19 @@ pub fn draw(b: Buffer, box: Box, src: []const u32) void {
     }
 }
 
+/// the src_box param specifies the xy offset to start the copies from, and the
+/// wh is the size of the src buffer
+pub fn copyFrom(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void {
+    std.debug.assert(@sizeOf(T) == @sizeOf(u32));
+    for (0..box.h, box.y..box.y + box.h) |sy, dy| {
+        const src_row = src[sy + src_box.y .. src_box.w];
+        @memcpy(
+            b.rowSlice(dy)[box.x..][0..box.w],
+            @as([]const u32, @ptrCast(src_row[src_box.x..][0..box.w])),
+        );
+    }
+}
+
 pub fn copy(b: Buffer, T: type, box: Box, src: []const T) void {
     for (0..box.h, box.y..box.y + box.h) |sy, dy| {
         @memcpy(
