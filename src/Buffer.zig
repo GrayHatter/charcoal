@@ -102,10 +102,10 @@ pub const Box = struct {
     }
 
     pub fn merge(src: *Box, delta: Delta) void {
-        src.x = @intCast(@as(isize, @intCast(src.x)) + delta.x);
-        src.y = @intCast(@as(isize, @intCast(src.y)) + delta.y);
-        src.w = @intCast(@as(isize, @intCast(src.w)) + delta.w);
-        src.h = @intCast(@as(isize, @intCast(src.h)) + delta.h);
+        src.x = @max(0, @as(isize, @intCast(src.x)) + delta.x);
+        src.y = @max(0, @as(isize, @intCast(src.y)) + delta.y);
+        src.w = @max(0, @as(isize, @intCast(src.w)) + delta.w);
+        src.h = @max(0, @as(isize, @intCast(src.h)) + delta.h);
     }
 
     pub fn add(src: Box, d: Delta) Box {
