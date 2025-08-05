@@ -217,8 +217,39 @@ pub fn draw(b: Buffer, box: Box, src: []const u32) void {
 
 /// the src_box param specifies the xy offset to start the copies from, and the
 /// wh is the size of the src buffer
+pub fn copyFromTile(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void {
+    assert(@sizeOf(T) == @sizeOf(u32));
+    assert(src.len >= src_box.w * src_box.h);
+    const repeat_x = box.w / src_box.w;
+    const remain_x = box.w % src_box.w;
+
+    for (0..box.h, box.y..box.y2()) |sy, dy| {
+        const dst_row = b.rowSlice(dy)[box.x..][0..box.w];
+        const src_row = src[(sy % src_box.h) + src_box.y .. src_box.w];
+        for (0..repeat_x) |rx| {
+            @memcpy(
+                dst_row[src_box.w * rx .. src_box.w * (rx + 1)],
+                @as([]const u32, @ptrCast(src_row[(src_box.x % src_box.w)..][0..src_box.w])),
+            );
+        }
+        if (remain_x > 0) {
+            @memcpy(
+                dst_row[src_box.w * repeat_x ..][0..remain_x],
+                @as([]const u32, @ptrCast(src_row[(src_box.x % src_box.w)..][0..remain_x])),
+            );
+        }
+    }
+}
+
+/// the src_box param specifies the xy offset to start the copies from, and the
+/// wh is the size of the src buffer
+///
+/// if the destination is larger than the source, use `copyFromTile` instead.
 pub fn copyFrom(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void {
-    std.debug.assert(@sizeOf(T) == @sizeOf(u32));
+    assert(@sizeOf(T) == @sizeOf(u32));
+    assert(src_box.w >= box.w);
+    assert(src_box.h >= box.h);
+
     for (0..box.h, box.y..box.y + box.h) |sy, dy| {
         const src_row = src[sy + src_box.y .. src_box.w];
         @memcpy(
