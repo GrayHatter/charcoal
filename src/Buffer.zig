@@ -503,19 +503,30 @@ pub fn drawCircleCentered(b: *Buffer, T: type, box: Box, ecolor: T) void {
     }
 }
 
-pub const Orientation = enum {
-    north,
-    north_east,
-    east,
-    south_east,
-    south,
-    south_west,
-    west,
-    north_west,
-};
+pub fn drawTrianglePoints(b: *Buffer, T: type, box: Box, color: T, points: [6]f64) void {
+    const x0, const y0, const x1, const y1, const x2, const y2 = points;
+    const area = (-y1 * x2 + y0 * (x2 - x1) + x0 * (y1 - y2) + x1 * y2);
+    const s_c = y0 * x2 - x0 * y2;
+    const s_t = x0 * y1 - y0 * x1;
+    stride: for (0..box.h) |y| {
+        const s_y: f64 = (x0 - x2) * @as(f64, @floatFromInt(y));
+        const t_y: f64 = (x1 - x0) * @as(f64, @floatFromInt(y));
+        const row = b.rowSlice(box.y + y);
+        var open: bool = false;
+        for (0..box.w) |x| {
+            const px: f64 = @floatFromInt(x);
+            const s = 1 / area * (s_c + (y2 - y0) * px + s_y);
+            const t = 1 / area * (s_t + (y0 - y1) * px + t_y);
+            if (s >= 0 and t >= 0 and s + t <= 1) {
+                row[box.x + x] = @intFromEnum(color);
+                open = true;
+            } else if (open) continue :stride;
+        }
+    }
+}
 
-pub fn drawTriangle(b: *Buffer, T: type, ori: Orientation, box: Box, color: T) void {
-    const x0: f64, const y0: f64, const x1: f64, const y1: f64, const x2: f64, const y2: f64 = switch (ori) {
+pub fn drawTriangle(b: *Buffer, T: type, dir: Direction, box: Box, color: T) void {
+    const points: [6]f64 = switch (dir) {
         .north => .{
             @floatFromInt(box.w),     @floatFromInt(box.h),
             @floatFromInt(0),         @floatFromInt(box.h),
@@ -557,24 +568,7 @@ pub fn drawTriangle(b: *Buffer, T: type, ori: Orientation, box: Box, color: T) v
             @floatFromInt(0),     @floatFromInt(box.h),
         },
     };
-    const area = (-y1 * x2 + y0 * (x2 - x1) + x0 * (y1 - y2) + x1 * y2);
-    const s_c = y0 * x2 - x0 * y2;
-    const s_t = x0 * y1 - y0 * x1;
-    stride: for (0..box.h) |y| {
-        const s_y: f64 = (x0 - x2) * @as(f64, @floatFromInt(y));
-        const t_y: f64 = (x1 - x0) * @as(f64, @floatFromInt(y));
-        const row = b.rowSlice(box.y + y);
-        var open: bool = false;
-        for (0..box.w) |x| {
-            const px: f64 = @floatFromInt(x);
-            const s = 1 / area * (s_c + (y2 - y0) * px + s_y);
-            const t = 1 / area * (s_t + (y0 - y1) * px + t_y);
-            if (s >= 0 and t >= 0 and s + t <= 1) {
-                row[box.x + x] = @intFromEnum(color);
-                open = true;
-            } else if (open) continue :stride;
-        }
-    }
+    b.drawTrianglePoints(T, box, color, points);
 }
 
 pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
