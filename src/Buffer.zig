@@ -32,6 +32,15 @@ pub const Box = struct {
         h: isize,
         pub const zero: Delta = .{ .x = 0, .y = 0, .w = 0, .h = 0 };
 
+        pub fn fromBox(b: Box) Delta {
+            return .{
+                .x = @intCast(b.x),
+                .y = @intCast(b.y),
+                .w = @intCast(b.w),
+                .h = @intCast(b.h),
+            };
+        }
+
         pub fn vector(s: isize) Delta {
             return .{ .x = s, .y = s, .w = s * -2, .h = s * -2 };
         }
@@ -247,11 +256,11 @@ pub fn copyFromTile(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) 
 /// if the destination is larger than the source, use `copyFromTile` instead.
 pub fn copyFrom(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void {
     assert(@sizeOf(T) == @sizeOf(u32));
-    assert(src_box.w >= box.w);
-    assert(src_box.h >= box.h);
+    assert(box.w <= src_box.w);
+    assert(box.h <= src_box.h);
 
     for (0..box.h, box.y..box.y + box.h) |sy, dy| {
-        const src_row = src[sy + src_box.y .. src_box.w];
+        const src_row = src[(sy + src_box.y) * src_box.w ..][0..src_box.w];
         @memcpy(
             b.rowSlice(dy)[box.x..][0..box.w],
             @as([]const u32, @ptrCast(src_row[src_box.x..][0..box.w])),
