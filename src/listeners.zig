@@ -49,14 +49,20 @@ fn outputEvent(_: *wl.Output, event: wl.Output.Event, _: *Wayland) void {
 
 pub fn xdgSurfaceEvent(xdg_surface: *Xdg.Surface, event: Xdg.Surface.Event, _: *Wayland) void {
     switch (event) {
-        .configure => |configure| xdg_surface.ackConfigure(configure.serial),
+        .configure => |configure| {
+            log.debug("surface configure event {}", .{configure});
+            xdg_surface.ackConfigure(configure.serial);
+        },
     }
 }
 
 pub fn xdgToplevelEvent(_: *Xdg.Toplevel, event: Xdg.Toplevel.Event, ptr: *Wayland) void {
     switch (event) {
         .close => ptr.quit(),
-        .configure_bounds, .wm_capabilities, .configure => ptr.configure(event),
+        .configure_bounds, .wm_capabilities, .configure => {
+            log.debug("xdg toplevel event {}", .{event});
+            ptr.configure(event);
+        },
     }
 }
 
@@ -95,7 +101,16 @@ fn seatEvent(s: *wl.Seat, evt: wl.Seat.Event, c_wl: *Wayland) void {
 
 fn keyEvent(_: *wl.Keyboard, evt: wl.Keyboard.Event, ui: *Ui) void {
     switch (evt) {
-        .key, .modifiers, .enter, .leave => ui.event(.{ .key = evt }),
+        .key => ui.event(.{ .key = evt }),
+        .modifiers => ui.event(.{ .key_mods = evt }),
+        .enter => {
+            log.debug("keyboard focus gained {}", .{evt});
+            ui.event(.{ .focus = .{ .from = .{ .keyboard = evt }, .focus = .enter } });
+        },
+        .leave => {
+            log.debug("keyboard focus lost {}", .{evt});
+            ui.event(.{ .focus = .{ .from = .{ .keyboard = evt }, .focus = .leave } });
+        },
         .keymap => ui.newKeymap(evt),
         //.repeat_info => {},
         else => {
@@ -111,9 +126,12 @@ fn pointerEvent(_: *wl.Pointer, evt: wl.Pointer.Event, ptr: *Ui) void {
                 "ptr enter x {d: <8} y {d: <8}",
                 .{ enter.surface_x.toInt(), enter.surface_y.toInt() },
             );
-            ptr.event(.{ .pointer = evt });
+            ptr.event(.{ .focus = .{ .from = .{ .mouse = evt }, .focus = .enter } });
         },
-        .leave => |leave| log.debug("ptr leave {}", .{leave}),
+        .leave => |leave| {
+            log.debug("ptr leave {}", .{leave});
+            ptr.event(.{ .focus = .{ .from = .{ .mouse = evt }, .focus = .leave } });
+        },
         .motion => |motion| {
             log.debug(
                 "mm        x {d: <8} y {d: <8}",

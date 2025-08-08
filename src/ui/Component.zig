@@ -61,11 +61,11 @@ pub fn mMove(comp: *Component, mmove: Pointer.Motion, box: Box) void {
     }
 }
 
-pub fn click(comp: *Component, clk: Pointer.Click, box: Box) bool {
-    if (comp.vtable.click) |clickV| {
-        return clickV(comp, clk, box);
+pub fn mClick(comp: *Component, clk: Pointer.Click) bool {
+    if (comp.vtable.mclick) |clickV| {
+        return clickV(comp, clk);
     } else for (comp.children) |*child| {
-        if (child.click(clk, box)) {
+        if (child.mClick(clk)) {
             comp.draw_needed = child.draw_needed or comp.draw_needed;
             return true;
         }
@@ -82,7 +82,18 @@ pub const VTable = struct {
     draw: ?Draw,
     keypress: ?KeyPress,
     mmove: ?MMove,
-    click: ?Click,
+    mclick: ?MClick,
+
+    pub const empty: VTable = .{
+        .init = null,
+        .raze = null,
+        .tick = null,
+        .background = null,
+        .draw = null,
+        .keypress = null,
+        .mmove = null,
+        .click = null,
+    };
 
     pub fn auto(comptime uicomp: type) VTable {
         return .{
@@ -93,7 +104,7 @@ pub const VTable = struct {
             .draw = if (@hasDecl(uicomp, "draw")) uicomp.draw else null,
             .keypress = if (@hasDecl(uicomp, "keyPress")) uicomp.keyPress else null,
             .mmove = if (@hasDecl(uicomp, "mMove")) uicomp.mMove else null,
-            .click = if (@hasDecl(uicomp, "click")) uicomp.mClick else null,
+            .mclick = if (@hasDecl(uicomp, "mClick")) uicomp.mClick else null,
         };
     }
 };
@@ -105,7 +116,7 @@ pub const Background = *const fn (*Component, *Buffer, Box) void;
 pub const Draw = *const fn (*Component, *Buffer, Box) void;
 pub const KeyPress = *const fn (*Component, KeyEvent) bool;
 pub const MMove = *const fn (*Component, Pointer.Motion, Box) void;
-pub const Click = *const fn (*Component, Pointer.Click) bool;
+pub const MClick = *const fn (*Component, Pointer.Click) bool;
 
 pub const InitError = error{
     OutOfMemory,

@@ -1,6 +1,7 @@
 root: ?*Component = null,
 keymap: Keymap = .{},
 hid: struct {
+    pointer_pos: Pointer.Position = .zero,
     mods: u32 = 0,
 } = .{},
 active_buffer: ?*Buffer = null,
@@ -11,9 +12,18 @@ const Ui = @This();
 pub const Component = @import("ui/Component.zig");
 
 pub const Event = union(enum) {
+    focus: Focus,
     key: Wayland.Keyboard.Event,
+    key_mods: Wayland.Keyboard.Event,
     pointer: Wayland.Pointer.Event,
 
+    pub const Focus = struct {
+        from: union(enum) {
+            mouse: Wayland.Pointer.Event,
+            keyboard: Wayland.Keyboard.Event,
+        },
+        focus: enum { enter, leave },
+    };
     pub const Key = Keyboard.Event;
     pub const MMove = Pointer.Motion;
     pub const Click = Pointer.Click;
@@ -61,13 +71,18 @@ pub fn redraw(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     root.draw(buffer, box);
 }
 
+pub fn moveFrame(ui: *Ui, evt: Pointer.Click) void {
+    const chr: *Charcoal = @fieldParentPtr("ui", ui);
+    chr.wayland.toplevel.?.move(chr.wayland.seat.?, evt.serial);
+}
+
 pub fn event(ui: *Ui, evt: Event) void {
     const root = ui.root orelse {
         log.warn("UI not ready for event {}", .{evt});
         return;
     };
     switch (evt) {
-        .key => |k| switch (k) {
+        .key_mods, .key => |k| switch (k) {
             .key => |key| {
                 switch (key.state) {
                     .pressed => {
@@ -92,16 +107,25 @@ pub fn event(ui: *Ui, evt: Event) void {
             },
             .modifiers => {
                 ui.hid.mods = k.modifiers.mods_depressed;
-                log.debug("mods {}", .{k.modifiers});
+                log.debug("modifers changed {}", .{k.modifiers});
             },
             else => {},
         },
         .pointer => |point| switch (point) {
             .button => |btn| {
-                const chr: *Charcoal = @fieldParentPtr("ui", ui);
-                chr.wayland.toplevel.?.move(chr.wayland.seat.?, btn.serial);
+                _ = root.mClick(.{
+                    .pos = ui.hid.pointer_pos,
+                    .button = @enumFromInt(btn.button),
+                    .up = btn.state == .released,
+                    .serial = btn.serial,
+                    .mods = .init(ui.hid.mods),
+                });
             },
             .motion => |mot| {
+                ui.hid.pointer_pos = .fromFixed(
+                    @intFromEnum(mot.surface_x),
+                    @intFromEnum(mot.surface_y),
+                );
                 root.mMove(.fromFixed(
                     @intFromEnum(mot.surface_x),
                     @intFromEnum(mot.surface_y),
@@ -110,6 +134,37 @@ pub fn event(ui: *Ui, evt: Event) void {
                 ), root.box);
             },
             else => {},
+        },
+        .focus => |foc| switch (foc.from) {
+            .keyboard => {
+                const mods: KMod = .init(ui.hid.mods);
+                _ = root.keyPress(.{
+                    .up = true,
+                    .key = .{ .focus = foc.focus == .enter },
+                    .mods = mods,
+                });
+                //root.focused(foc);
+            },
+            .mouse => |mot| {
+                const x, const y = switch (mot) {
+                    .enter => |e| .{
+                        @intFromEnum(e.surface_x),
+                        @intFromEnum(e.surface_y),
+                    },
+                    .leave => |_| .{ 0, 0 },
+                    else => unreachable,
+                };
+                var m: Pointer.Motion = .fromFixed(
+                    x,
+                    y,
+                    false,
+                    .init(ui.hid.mods),
+                );
+                if (foc.focus == .leave) {
+                    m.focus = .leave;
+                }
+                _ = root.mMove(m, root.box);
+            },
         },
     }
 }
@@ -120,29 +175,28 @@ pub const Keyboard = struct {
         key: union(enum) {
             char: u8,
             ctrl: Keymap.Control,
+            focus: bool,
         },
         mods: KMod,
     };
 };
 
 pub const Pointer = struct {
-    pub const Motion = struct {
-        up: bool,
+    pub const Position = struct {
         x: i24,
         y: i24,
-        mods: KMod,
         /// base 2 fractional. Divide by 0xff to get dec fraction
         fractional: struct {
             x: u8,
             y: u8,
         },
 
-        pub fn fromFixed(x: i32, y: i32, up: bool, mods: KMod) Motion {
+        pub const zero: Position = .{ .x = 0, .y = 0, .fractional = .{ .x = 0, .y = 0 } };
+
+        pub fn fromFixed(x: i32, y: i32) Position {
             return .{
-                .up = up,
                 .x = @as(i24, @intCast(x >> 8)),
                 .y = @as(i24, @intCast(y >> 8)),
-                .mods = mods,
                 .fractional = .{
                     .x = @intCast(x & 0xff),
                     .y = @intCast(y & 0xff),
@@ -150,36 +204,141 @@ pub const Pointer = struct {
             };
         }
 
-        pub fn addOffset(m: Motion, x: i24, y: i24) Motion {
+        pub fn addOffset(p: Position, x: i24, y: i24) Position {
             return .{
-                .up = m.up,
-                .x = m.x + x,
-                .y = m.y + y,
-                .mods = m.mods,
-                .fractional = m.fractional,
+                .x = p.x + x,
+                .y = p.y + y,
+                .fractional = p.fractional,
             };
         }
 
+        pub fn withinBox(pos: Position, box: Buffer.Box) ?Position {
+            if (pos.x >= box.x and pos.x <= box.x2() and pos.y >= box.y and pos.y <= box.y2()) {
+                const x: i24 = @intCast(box.x);
+                const y: i24 = @intCast(box.y);
+                return pos.addOffset(-x, -y);
+            }
+            return null;
+        }
+    };
+
+    pub const Motion = struct {
+        pos: Position,
+        up: bool,
+        focus: enum { enter, leave } = .enter,
+        mods: KMod,
+
+        pub fn fromFixed(x: i32, y: i32, up: bool, mods: KMod) Motion {
+            return .{
+                .pos = .fromFixed(x, y),
+                .up = up,
+                .mods = mods,
+            };
+        }
+
+        pub fn withinBox(m: Motion, box: Buffer.Box) ?Motion {
+            if (m.pos.withinBox(box)) |pos| {
+                return .{
+                    .pos = pos,
+                    .up = m.up,
+                    .focus = m.focus,
+                    .mods = m.mods,
+                };
+            }
+            return null;
+        }
         pub fn format(m: Motion, _: []const u8, _: anytype, w: anytype) !void {
             return w.print("Motion: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
-                m.x, m.y,
+                m.pos.x, m.pos.y,
                 if (m.mods.ctrl) " ctrl" else "", if (m.mods.shift) " shift" else "", //
                 if (m.mods.alt) " alt" else "", //
-                m.x, @as(usize, m.fractional.x) * 100 / 265, //
-                m.y, @as(usize, m.fractional.y) * 100 / 265,
+                m.pos.x, @as(usize, m.pos.fractional.x) * 100 / 265, //
+                m.pos.y, @as(usize, m.pos.fractional.y) * 100 / 265,
             });
         }
     };
 
     pub const Click = struct {
+        pos: Position,
         up: bool,
         button: Button,
-        x: f32,
-        y: f32,
+        serial: u32,
         mods: KMod,
+
+        pub fn format(m: Click, _: []const u8, _: anytype, w: anytype) !void {
+            return w.print("*Click: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
+                m.pos.x, m.pos.y,
+                if (m.mods.ctrl) " ctrl" else "", if (m.mods.shift) " shift" else "", //
+                if (m.mods.alt) " alt" else "", //
+                m.pos.x, @as(usize, m.pos.fractional.x) * 100 / 255, //
+                m.pos.y, @as(usize, m.pos.fractional.y) * 100 / 255,
+            });
+        }
     };
 
-    pub const Button = u8;
+    pub const Button = enum(u32) {
+        // linux/include/uapi/linux/input-event-codes.h
+        // ***sigh***
+        BTN_0 = 0x100,
+        BTN_1 = 0x101,
+        BTN_2 = 0x102,
+        BTN_3 = 0x103,
+        BTN_4 = 0x104,
+        BTN_5 = 0x105,
+        BTN_6 = 0x106,
+        BTN_7 = 0x107,
+        BTN_8 = 0x108,
+        BTN_9 = 0x109,
+
+        left = 0x110,
+        right = 0x111,
+        middle = 0x112,
+        side = 0x113,
+        extra = 0x114,
+        forward = 0x115,
+        back = 0x116,
+        task = 0x117,
+
+        joystick = 0x120,
+        thumb = 0x121,
+        thumb2 = 0x122,
+        top = 0x123,
+        top2 = 0x124,
+        pinkie = 0x125,
+        base = 0x126,
+        base2 = 0x127,
+        base3 = 0x128,
+        base4 = 0x129,
+        base5 = 0x12a,
+        base6 = 0x12b,
+        dead = 0x12f,
+
+        south = 0x130,
+        east = 0x131,
+        center = 0x132,
+        north = 0x133,
+        west = 0x134,
+        z = 0x135,
+        tl = 0x136,
+        tr = 0x137,
+        tl2 = 0x138,
+        tr2 = 0x139,
+        select = 0x13a,
+        start = 0x13b,
+        mode = 0x13c,
+        thumbl = 0x13d,
+        thumbr = 0x13e,
+
+        _,
+
+        pub const trigger: Button = .joystick;
+        pub const misc: Button = .BTN_0;
+        pub const gamepad: Button = .south;
+        pub const BTN_A: Button = .south;
+        pub const BTN_B: Button = .east;
+        pub const BTN_X: Button = .north;
+        pub const BTN_Y: Button = .west;
+    };
 };
 
 pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
