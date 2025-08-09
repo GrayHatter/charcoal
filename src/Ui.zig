@@ -139,10 +139,7 @@ pub fn event(ui: *Ui, evt: Event) void {
         .focus => |foc| {
             const chr: *Charcoal = @fieldParentPtr("ui", ui);
             if (chr.wayland.hid.cursor_shape) |cursor_shape| {
-                std.debug.print("setting cursor\n", .{});
                 cursor_shape.setShape(foc.serial, .default);
-            } else {
-                std.debug.print("setting cursor missing\n", .{});
             }
 
             switch (foc.from) {

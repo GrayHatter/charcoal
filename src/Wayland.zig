@@ -62,14 +62,15 @@ pub fn handshake(w: *Wayland) !void {
     w.toplevel = try w.xdgsurface.?.getToplevel(); //  orelse return error.NoToplevel;
     w.xdgsurface.?.setListener(*Wayland, listeners.xdgSurfaceEvent, w);
     w.toplevel.?.setListener(*Wayland, listeners.xdgToplevelEvent, w);
+    try w.roundtrip();
     w.connected = true;
 }
 
 pub fn raze(w: *Wayland) void {
+    w.connected = false;
     if (w.toplevel) |tl| tl.destroy();
     if (w.xdgsurface) |s| s.destroy();
     if (w.surface) |s| s.destroy();
-    w.connected = false;
 }
 
 pub fn roundtrip(w: *Wayland) !void {
@@ -99,10 +100,21 @@ pub fn attach(w: *Wayland, b: Buffer) !void {
     try w.roundtrip();
 }
 
+pub fn rename(w: *Wayland, name: []const u8) !void {
+    var buffer: [2048]u8 = undefined;
+    const nameZ = try std.fmt.bufPrintZ(&buffer, "{s}", .{name});
+    if (w.toplevel) |tl| {
+        tl.setTitle(nameZ);
+    }
+}
+
 pub fn resize(w: *Wayland, box: Buffer.Box) !void {
     if (w.toplevel) |tl| {
         tl.setMaxSize(@intCast(box.w), @intCast(box.h));
         tl.setMinSize(@intCast(box.w), @intCast(box.h));
+    }
+    if (w.xdgsurface) |xs| {
+        xs.setWindowGeometry(@intCast(box.x), @intCast(box.y), @intCast(box.w), @intCast(box.h));
     }
     if (w.surface) |s| s.commit();
     try w.roundtrip();
@@ -110,9 +122,9 @@ pub fn resize(w: *Wayland, box: Buffer.Box) !void {
 
 pub fn configure(_: *Wayland, evt: Toplevel.Event) void {
     switch (evt) {
-        .configure => |conf| log.debug("toplevel conf {}", .{conf}),
-        .configure_bounds => |bounds| log.debug("toplevel bounds {}", .{bounds}),
-        .wm_capabilities => |caps| log.debug("toplevel caps {}", .{caps}),
+        .configure => |c| log.debug("xdg_toplvl   conf {}", .{c}),
+        .configure_bounds => |b| log.debug("xdg_toplvl bounds {}", .{b}),
+        .wm_capabilities => |c| log.debug("xdg_toplvl   caps {}", .{c}),
         .close => unreachable,
     }
 }

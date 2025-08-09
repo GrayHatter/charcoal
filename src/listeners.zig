@@ -13,6 +13,7 @@ pub fn registry(r: *wl.Registry, event: wl.Registry.Event, ptr: *Wayland) void {
                 ptr.shm = r.bind(global.name, wl.Shm, @min(global.version, wl.Shm.generated_version)) catch return;
             } else if (orderZ(u8, global.interface, Xdg.WmBase.interface.name) == .eq) {
                 ptr.wm_base = r.bind(global.name, Xdg.WmBase, @min(global.version, Xdg.WmBase.generated_version)) catch return;
+                ptr.wm_base.?.setListener(*Wayland, xdgWmBaseEvent, ptr);
             } else if (orderZ(u8, global.interface, wl.Seat.interface.name) == .eq) {
                 ptr.seat = r.bind(global.name, wl.Seat, @min(global.version, wl.Seat.generated_version)) catch return;
                 ptr.seat.?.setListener(*Wayland, seatEvent, ptr);
@@ -20,7 +21,6 @@ pub fn registry(r: *wl.Registry, event: wl.Registry.Event, ptr: *Wayland) void {
                 ptr.dmabuf = r.bind(global.name, Zwp.LinuxDmabufV1, @min(global.version, Zwp.LinuxDmabufV1.generated_version)) catch return;
                 ptr.dmabuf.?.setListener(*Wayland, dmabufEvent, ptr);
             } else if (orderZ(u8, global.interface, Wp.CursorShapeManagerV1.interface.name) == .eq) {
-                log.debug("cursor shape global {s}", .{global.interface});
                 ptr.hid.cursor_manager = r.bind(
                     global.name,
                     Wp.CursorShapeManagerV1,
@@ -54,6 +54,12 @@ fn outputEvent(_: *wl.Output, event: wl.Output.Event, _: *Wayland) void {
     }
 }
 
+pub fn xdgWmBaseEvent(wm_base: *Xdg.WmBase, event: Xdg.WmBase.Event, _: *Wayland) void {
+    switch (event) {
+        .ping => |p| wm_base.pong(p.serial),
+    }
+}
+
 pub fn xdgSurfaceEvent(xdg_surface: *Xdg.Surface, event: Xdg.Surface.Event, _: *Wayland) void {
     switch (event) {
         .configure => |configure| {
@@ -66,8 +72,10 @@ pub fn xdgSurfaceEvent(xdg_surface: *Xdg.Surface, event: Xdg.Surface.Event, _: *
 pub fn xdgToplevelEvent(_: *Xdg.Toplevel, event: Xdg.Toplevel.Event, ptr: *Wayland) void {
     switch (event) {
         .close => ptr.quit(),
-        .configure_bounds, .wm_capabilities, .configure => {
-            log.debug("xdg toplevel event {}", .{event});
+        .configure_bounds,
+        .wm_capabilities,
+        .configure,
+        => {
             ptr.configure(event);
         },
     }
