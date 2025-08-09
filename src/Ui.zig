@@ -23,6 +23,7 @@ pub const Event = union(enum) {
             keyboard: Wayland.Keyboard.Event,
         },
         focus: enum { enter, leave },
+        serial: u32,
     };
     pub const Key = Keyboard.Event;
     pub const MMove = Pointer.Motion;
@@ -135,36 +136,46 @@ pub fn event(ui: *Ui, evt: Event) void {
             },
             else => {},
         },
-        .focus => |foc| switch (foc.from) {
-            .keyboard => {
-                const mods: KMod = .init(ui.hid.mods);
-                _ = root.keyPress(.{
-                    .up = true,
-                    .key = .{ .focus = foc.focus == .enter },
-                    .mods = mods,
-                });
-                //root.focused(foc);
-            },
-            .mouse => |mot| {
-                const x, const y = switch (mot) {
-                    .enter => |e| .{
-                        @intFromEnum(e.surface_x),
-                        @intFromEnum(e.surface_y),
-                    },
-                    .leave => |_| .{ 0, 0 },
-                    else => unreachable,
-                };
-                var m: Pointer.Motion = .fromFixed(
-                    x,
-                    y,
-                    false,
-                    .init(ui.hid.mods),
-                );
-                if (foc.focus == .leave) {
-                    m.focus = .leave;
-                }
-                _ = root.mMove(m, root.box);
-            },
+        .focus => |foc| {
+            const chr: *Charcoal = @fieldParentPtr("ui", ui);
+            if (chr.wayland.hid.cursor_shape) |cursor_shape| {
+                std.debug.print("setting cursor\n", .{});
+                cursor_shape.setShape(foc.serial, .default);
+            } else {
+                std.debug.print("setting cursor missing\n", .{});
+            }
+
+            switch (foc.from) {
+                .keyboard => {
+                    const mods: KMod = .init(ui.hid.mods);
+                    _ = root.keyPress(.{
+                        .up = true,
+                        .key = .{ .focus = foc.focus == .enter },
+                        .mods = mods,
+                    });
+                    //root.focused(foc);
+                },
+                .mouse => |mot| {
+                    const x, const y = switch (mot) {
+                        .enter => |e| .{
+                            @intFromEnum(e.surface_x),
+                            @intFromEnum(e.surface_y),
+                        },
+                        .leave => |_| .{ 0, 0 },
+                        else => unreachable,
+                    };
+                    var m: Pointer.Motion = .fromFixed(
+                        x,
+                        y,
+                        false,
+                        .init(ui.hid.mods),
+                    );
+                    if (foc.focus == .leave) {
+                        m.focus = .leave;
+                    }
+                    _ = root.mMove(m, root.box);
+                },
+            }
         },
     }
 }

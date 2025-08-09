@@ -6,6 +6,8 @@ pub fn build(b: *std.Build) void {
     const scanner = Scanner.create(b, .{});
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addSystemProtocol("stable/linux-dmabuf/linux-dmabuf-v1.xml");
+    scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
+    scanner.addSystemProtocol("staging/cursor-shape/cursor-shape-v1.xml");
 
     scanner.generate("wl_compositor", 4);
     scanner.generate("wl_output", 4);
@@ -13,6 +15,10 @@ pub fn build(b: *std.Build) void {
     scanner.generate("wl_shm", 1);
     scanner.generate("xdg_wm_base", 7);
     scanner.generate("zwp_linux_dmabuf_v1", 5);
+    // I don't actually want tablet_manager, but it's required for
+    // cursor_shape_manager :<
+    scanner.generate("zwp_tablet_manager_v2", 2);
+    scanner.generate("wp_cursor_shape_manager_v1", 2);
     //scanner.generate("zwp_linux_buffer_params_v1", 5);
     //scanner.generate("zwp_linux_dmabuf_feedback_v1", 5);
 

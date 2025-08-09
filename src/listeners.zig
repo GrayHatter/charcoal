@@ -19,6 +19,13 @@ pub fn registry(r: *wl.Registry, event: wl.Registry.Event, ptr: *Wayland) void {
             } else if (orderZ(u8, global.interface, Zwp.LinuxDmabufV1.interface.name) == .eq) {
                 ptr.dmabuf = r.bind(global.name, Zwp.LinuxDmabufV1, @min(global.version, Zwp.LinuxDmabufV1.generated_version)) catch return;
                 ptr.dmabuf.?.setListener(*Wayland, dmabufEvent, ptr);
+            } else if (orderZ(u8, global.interface, Wp.CursorShapeManagerV1.interface.name) == .eq) {
+                log.debug("cursor shape global {s}", .{global.interface});
+                ptr.hid.cursor_manager = r.bind(
+                    global.name,
+                    Wp.CursorShapeManagerV1,
+                    @min(global.version, Wp.CursorShapeManagerV1.generated_version),
+                ) catch return;
             } else {
                 log.debug("extra global {s}", .{global.interface});
             }
@@ -88,6 +95,7 @@ fn seatEvent(s: *wl.Seat, evt: wl.Seat.Event, c_wl: *Wayland) void {
         .capabilities => |cap| {
             if (cap.capabilities.pointer) {
                 c_wl.hid.pointer = s.getPointer() catch return;
+                c_wl.hid.cursor_shape = c_wl.hid.cursor_manager.?.getPointer(c_wl.hid.pointer.?) catch unreachable;
                 c_wl.hid.pointer.?.setListener(*Ui, pointerEvent, c_wl.getUi());
             }
             if (cap.capabilities.keyboard) {
@@ -102,14 +110,24 @@ fn seatEvent(s: *wl.Seat, evt: wl.Seat.Event, c_wl: *Wayland) void {
 fn keyEvent(_: *wl.Keyboard, evt: wl.Keyboard.Event, ui: *Ui) void {
     switch (evt) {
         .key => ui.event(.{ .key = evt }),
-        .modifiers => ui.event(.{ .key_mods = evt }),
-        .enter => {
+        .modifiers => ui.event(.{
+            .key_mods = evt,
+        }),
+        .enter => |enter| {
             log.debug("keyboard focus gained {}", .{evt});
-            ui.event(.{ .focus = .{ .from = .{ .keyboard = evt }, .focus = .enter } });
+            ui.event(.{ .focus = .{
+                .from = .{ .keyboard = evt },
+                .focus = .enter,
+                .serial = enter.serial,
+            } });
         },
-        .leave => {
+        .leave => |leave| {
             log.debug("keyboard focus lost {}", .{evt});
-            ui.event(.{ .focus = .{ .from = .{ .keyboard = evt }, .focus = .leave } });
+            ui.event(.{ .focus = .{
+                .from = .{ .keyboard = evt },
+                .focus = .leave,
+                .serial = leave.serial,
+            } });
         },
         .keymap => ui.newKeymap(evt),
         //.repeat_info => {},
@@ -126,11 +144,19 @@ fn pointerEvent(_: *wl.Pointer, evt: wl.Pointer.Event, ptr: *Ui) void {
                 "ptr enter x {d: <8} y {d: <8}",
                 .{ enter.surface_x.toInt(), enter.surface_y.toInt() },
             );
-            ptr.event(.{ .focus = .{ .from = .{ .mouse = evt }, .focus = .enter } });
+            ptr.event(.{ .focus = .{
+                .from = .{ .mouse = evt },
+                .focus = .enter,
+                .serial = enter.serial,
+            } });
         },
         .leave => |leave| {
             log.debug("ptr leave {}", .{leave});
-            ptr.event(.{ .focus = .{ .from = .{ .mouse = evt }, .focus = .leave } });
+            ptr.event(.{ .focus = .{
+                .from = .{ .mouse = evt },
+                .focus = .leave,
+                .serial = leave.serial,
+            } });
         },
         .motion => |motion| {
             log.debug(
@@ -163,3 +189,4 @@ const wayland = @import("wayland");
 const wl = wayland.client.wl;
 const Xdg = wayland.client.xdg;
 const Zwp = wayland.client.zwp;
+const Wp = wayland.client.wp;

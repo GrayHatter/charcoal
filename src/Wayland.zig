@@ -15,6 +15,8 @@ seat: ?*Seat = null,
 hid: struct {
     pointer: ?*Pointer = null,
     keyboard: ?*Keyboard = null,
+    cursor_manager: ?*CursorShapeManager = null,
+    cursor_shape: ?*CursorShapeDevice = null,
 } = .{},
 
 dmabuf: ?*LinuxDmabufV1 = null,
@@ -31,6 +33,8 @@ pub const Surface = client.wl.Surface;
 pub const Seat = client.wl.Seat;
 pub const Pointer = client.wl.Pointer;
 pub const Keyboard = client.wl.Keyboard;
+pub const CursorShapeManager = client.wp.CursorShapeManagerV1;
+pub const CursorShapeDevice = client.wp.CursorShapeDeviceV1;
 
 pub const Toplevel = client.xdg.Toplevel;
 pub const WmBase = client.xdg.WmBase;
