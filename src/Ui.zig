@@ -247,6 +247,7 @@ pub const Pointer = struct {
             }
             return null;
         }
+
         pub fn format(m: Motion, _: []const u8, _: anytype, w: anytype) !void {
             return w.print("Motion: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
                 m.pos.x, m.pos.y,
@@ -264,6 +265,19 @@ pub const Pointer = struct {
         button: Button,
         serial: u32,
         mods: KMod,
+
+        pub fn withinBox(c: Click, box: Buffer.Box) ?Click {
+            if (c.pos.withinBox(box)) |pos| {
+                return .{
+                    .pos = pos,
+                    .up = c.up,
+                    .button = c.button,
+                    .serial = c.serial,
+                    .mods = c.mods,
+                };
+            }
+            return null;
+        }
 
         pub fn format(m: Click, _: []const u8, _: anytype, w: anytype) !void {
             return w.print("*Click: x: {d:5} y: {d:5}{s}{s}{s} ({d}.{d:02.2}|{d}.{d:02.2})", .{
