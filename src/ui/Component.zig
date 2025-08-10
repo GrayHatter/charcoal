@@ -92,7 +92,7 @@ pub const VTable = struct {
         .draw = null,
         .keypress = null,
         .mmove = null,
-        .click = null,
+        .mclick = null,
     };
 
     pub fn auto(comptime uicomp: type) VTable {
