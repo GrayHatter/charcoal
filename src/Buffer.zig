@@ -331,8 +331,8 @@ pub fn drawRectangleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
     const width = box.x + box.w;
     const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
-    assert(box.w > 2);
-    assert(box.h > 2);
+    assert(box.w > 1);
+    assert(box.h > 1);
     for (box.y..height) |y| {
         const row = b.rowSlice(y);
         @memset(row[box.x..width], color);
@@ -344,8 +344,8 @@ pub fn drawRectangleFillMix(b: *Buffer, T: type, box: Box, ecolor: T) void {
     //const width = box.x + box.w;
     const height = box.y + box.h;
     //const color: u32 = @intFromEnum(ecolor);
-    assert(box.w > 2);
-    assert(box.h > 2);
+    assert(box.w > 1);
+    assert(box.h > 1);
     for (box.y..height) |y| {
         const row = b.rowSlice(y);
         for (box.x..box.x2()) |x| {
