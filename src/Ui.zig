@@ -30,10 +30,10 @@ pub const Event = union(enum) {
     pub const Click = Pointer.Click;
 };
 
-pub fn init(ui: *Ui, comp: *Component, a: Allocator, b: Buffer.Box) Component.InitError!void {
+pub fn init(ui: *Ui, comp: *Component, alloc: Allocator, box: Box, ptr: ?*anyopaque) Component.InitError!void {
     ui.root = comp;
 
-    try ui.root.?.init(a, b);
+    try ui.root.?.init(alloc, box, ptr);
 }
 
 pub fn raze(ui: *Ui, a: Allocator) void {
@@ -381,3 +381,4 @@ const Wayland = @import("Wayland.zig");
 const Keymap = @import("Keymap.zig");
 const KMod = Keymap.KMod;
 const Buffer = @import("Buffer.zig");
+const Box = Buffer.Box;

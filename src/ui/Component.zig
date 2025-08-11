@@ -6,10 +6,10 @@ children: []Component,
 
 const Component = @This();
 
-pub fn init(comp: *Component, a: Allocator, box: Box) InitError!void {
+pub fn init(comp: *Component, a: Allocator, box: Box, ptr: ?*anyopaque) InitError!void {
     if (comp.vtable.init) |initV| {
-        try initV(comp, a, box);
-    } else for (comp.children) |*child| try child.init(a, box);
+        try initV(comp, a, box, ptr);
+    } else for (comp.children) |*child| try child.init(a, box, ptr);
 }
 
 pub fn raze(comp: *Component, a: Allocator) void {
@@ -109,7 +109,7 @@ pub const VTable = struct {
     }
 };
 
-pub const Init = *const fn (*Component, Allocator, Box) InitError!void;
+pub const Init = *const fn (*Component, Allocator, Box, ?*anyopaque) InitError!void;
 pub const Raze = *const fn (*Component, Allocator) void;
 pub const Tick = *const fn (*Component, usize, ?*anyopaque) void;
 pub const Background = *const fn (*Component, *Buffer, Box) void;
