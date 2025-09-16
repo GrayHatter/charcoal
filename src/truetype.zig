@@ -135,7 +135,7 @@ pub const GlyphCache = struct {
         const gly = try gc.map.getOrPut(alloc, char);
         if (!gly.found_existing) {
             const codepoint = gc.ttf.codepointGlyphIndex(@intCast(char)) orelse return error.GlpyhNotFound;
-            var bm: std.ArrayListUnmanaged(u8) = .{};
+            var bm: ArrayList(u8) = .{};
             const bounds = gc.ttf.glyphBitmap(alloc, &bm, codepoint, gc.scale.x, gc.scale.y) catch |err|
                 switch (err) {
                     error.GlyphNotFound => GlyphBitmap{
@@ -290,7 +290,7 @@ pub fn glyphBitmap(
     /// Appended to the list.
     /// Stored left-to-right, top-to-bottom. 8 bits per pixel. 0 is
     /// transparent, 255 is opaque.
-    pixels: *std.ArrayListUnmanaged(u8),
+    pixels: *ArrayList(u8),
     glyph: GlyphIndex,
     scale_x: f32,
     scale_y: f32,
@@ -312,7 +312,7 @@ pub fn glyphBitmapSubpixel(
     /// Appended to the list.
     /// Stored left-to-right, top-to-bottom. 8 bits per pixel. 0 is
     /// transparent, 255 is opaque.
-    pixels: *std.ArrayListUnmanaged(u8),
+    pixels: *ArrayList(u8),
     glyph: GlyphIndex,
     scale_x: f32,
     scale_y: f32,
@@ -1689,7 +1689,7 @@ test "smoke test render all" {
             std.debug.print("no code point for {c}\n", .{@as(u8, @intCast(char))});
             continue;
         };
-        var map: std.ArrayListUnmanaged(u8) = .{};
+        var map: ArrayList(u8) = .{};
         const thing = try ttf.glyphBitmap(alloc, &map, glyph, 0.01866, 0.01866);
         if (debug_print_timing) std.debug.print("thing {} on {c}\n", .{ thing, @as(u8, @intCast(char)) });
         if (debug_print_timing) debugGlyph(.{ .pixels = map.items, .width = thing.width, .height = thing.height });
@@ -1702,7 +1702,7 @@ test "smoke test render all" {
             std.debug.print("no code point for {c}\n", .{@as(u8, @intCast(char))});
             return error.CodepointMissing;
         };
-        var map: std.ArrayListUnmanaged(u8) = .{};
+        var map: ArrayList(u8) = .{};
         const thing = try ttf.glyphBitmap(alloc, &map, glyph, 1.0, 1.0);
         std.mem.doNotOptimizeAway(thing);
         std.mem.doNotOptimizeAway(map);
@@ -1712,7 +1712,7 @@ test "smoke test render all" {
             std.debug.print("no code point for {c}\n", .{@as(u8, @intCast(char))});
             return error.CodepointMissing;
         };
-        var map: std.ArrayListUnmanaged(u8) = .{};
+        var map: ArrayList(u8) = .{};
         const thing = try ttf.glyphBitmap(alloc, &map, glyph, 1.0, 1.0);
         std.mem.doNotOptimizeAway(thing);
         std.mem.doNotOptimizeAway(map);
@@ -1724,7 +1724,7 @@ test "smoke test render all" {
             std.debug.print("no code point for {c}\n", .{@as(u8, @intCast(char))});
             return error.CodepointMissing;
         };
-        var map: std.ArrayListUnmanaged(u8) = .{};
+        var map: ArrayList(u8) = .{};
         const thing = try ttf.glyphBitmap(alloc, &map, glyph, 0.01866, 0.01866);
         std.mem.doNotOptimizeAway(thing);
         std.mem.doNotOptimizeAway(map);
@@ -1734,7 +1734,7 @@ test "smoke test render all" {
             std.debug.print("no code point for {c}\n", .{@as(u8, @intCast(char))});
             return error.CodepointMissing;
         };
-        var map: std.ArrayListUnmanaged(u8) = .{};
+        var map: ArrayList(u8) = .{};
         const thing = try ttf.glyphBitmap(alloc, &map, glyph, 0.01866, 0.01866);
         std.mem.doNotOptimizeAway(thing);
         std.mem.doNotOptimizeAway(map);
@@ -1749,5 +1749,5 @@ const std = @import("std");
 const readInt = std.mem.readInt;
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
-const ArrayList = std.ArrayListUnmanaged;
+const ArrayList = std.ArrayList;
 const debug_todo = true;
