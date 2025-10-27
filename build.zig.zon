@@ -1,8 +1,8 @@
 .{
     .name = .charcoal,
-    .version = "0.0.0",
+    .version = "0.1.0",
     .fingerprint = 0x915fb6869098f221,
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .wayland = .{
             .url = "git+https://github.com/ifreund/zig-wayland.git#v0.4.0",
