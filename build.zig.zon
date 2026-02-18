@@ -1,12 +1,17 @@
 .{
     .name = .charcoal,
-    .version = "0.1.0",
+    .version = "0.1.1",
     .fingerprint = 0x915fb6869098f221,
-    .minimum_zig_version = "0.15.2",
+    .minimum_zig_version = "0.16.0-dev.2535+b5bd4946",
     .dependencies = .{
         .wayland = .{
-            .url = "git+https://github.com/ifreund/zig-wayland.git#v0.4.0",
-            .hash = "wayland-0.4.0-lQa1khbMAQAsLS2eBR7M5lofyEGPIbu2iFDmoz8lPC27",
+            //.url = "git+https://github.com/ifreund/zig-wayland.git#v0.4.0",
+            //.hash = "wayland-0.4.0-lQa1khbMAQAsLS2eBR7M5lofyEGPIbu2iFDmoz8lPC27",
+
+            // The cannon URL is probably codeberg, but meh
+            // I'd use srctree here, but zig's TLS is still broken
+            .url = "git+https://github.com/GrayHatter/zig-wayland.git#45ea30630e99fe944d7046632de946b424c61055",
+            .hash = "wayland-0.5.0-dev-lQa1km3bAQCP8V0g6RbFv1WRe3DpAjH62Xg0NCzkg2NS",
         },
     },
     .paths = .{

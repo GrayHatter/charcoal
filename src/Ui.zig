@@ -158,7 +158,7 @@ pub fn event(ui: *Ui, evt: Event) void {
                             @intFromEnum(e.surface_x),
                             @intFromEnum(e.surface_y),
                         },
-                        .leave => |_| .{ 0, 0 },
+                        .leave => .{ 0, 0 },
                         else => unreachable,
                     };
                     var m: Pointer.Motion = .fromFixed(
