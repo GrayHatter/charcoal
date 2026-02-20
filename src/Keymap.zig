@@ -92,8 +92,10 @@ pub fn init() Keymap {
 }
 
 pub fn initFd(fd: anytype, size: u32) !Keymap {
-    const prot = std.posix.PROT.READ | std.posix.PROT.WRITE;
-    const data = std.posix.mmap(null, size, prot, .{ .TYPE = .PRIVATE }, fd, 0) catch unreachable;
+    const prot = std.os.linux.PROT{ .READ = true, .WRITE = true };
+    const data_code = std.os.linux.mmap(null, size, prot, .{ .TYPE = .PRIVATE }, fd, 0);
+    if (std.posix.errno(data_code) != .SUCCESS) @panic("OOM");
+    const data = @as([*]align(std.heap.page_size_min) u8, @ptrFromInt(data_code))[0..size];
 
     if (false) std.debug.print("{s}\n", .{data});
     _ = try parse(data);
@@ -103,7 +105,7 @@ pub fn initFd(fd: anytype, size: u32) !Keymap {
 }
 
 pub fn raze(k: Keymap) void {
-    if (k.data) |d| std.posix.munmap(@alignCast(d));
+    if (k.data) |d| _ = std.os.linux.munmap(@alignCast(d.ptr), d.len);
 }
 
 fn parse(_: []const u8) !void {

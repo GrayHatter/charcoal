@@ -148,7 +148,7 @@ pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
     return try initCapacity(shm, box, box, name);
 }
 
-pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: []const u8) !Buffer {
+pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: [:0]const u8) !Buffer {
     const width: u31 = @intCast(extra.w);
     const stride: u31 = width * 4;
     const height: u31 = @intCast(extra.h);
@@ -157,12 +157,15 @@ pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: []const u8) !Bu
     const active_width: u31 = @intCast(active.w);
     const active_height: u31 = @intCast(active.h);
 
-    const fd = try posix.memfd_create(name, 0);
-    try posix.ftruncate(fd, size);
-    const prot = posix.PROT.READ | posix.PROT.WRITE;
-    const raw = try posix.mmap(null, size, prot, .{ .TYPE = .SHARED }, fd, 0);
+    const fd = linux.memfd_create(name.ptr, 0);
+    if (fd < 0) return error.MemFdCreateFailed;
+    if (std.os.linux.ftruncate(@intCast(fd), size) != 0) return error.TruncateFailed;
+    const prot = std.os.linux.PROT{ .READ = true, .WRITE = true };
+    const raw_code = linux.mmap(null, size, prot, .{ .TYPE = .SHARED }, @intCast(fd), 0);
+    if (std.posix.errno(raw_code) != .SUCCESS) @panic("OOM");
+    const raw = @as([*]align(std.heap.page_size_min) u8, @ptrFromInt(raw_code))[0..size];
 
-    const pool = try shm.createPool(fd, size);
+    const pool = try shm.createPool(@intCast(fd), size);
     const buffer = try pool.createBuffer(0, active_width, active_height, stride, .argb8888);
     return .{
         .buffer = buffer,
@@ -181,7 +184,7 @@ pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: []const u8) !Bu
 pub fn raze(b: Buffer) void {
     b.buffer.destroy();
     b.pool.destroy();
-    posix.munmap(@alignCast(@ptrCast(b.raw)));
+    _ = linux.munmap(@ptrCast(@alignCast(b.raw)), b.raw.len);
 }
 
 pub fn resize(b: *Buffer, new: Box) !void {
@@ -597,5 +600,5 @@ const std = @import("std");
 const assert = std.debug.assert;
 const wayland = @import("wayland");
 const wl = wayland.client.wl;
-const posix = std.posix;
 const hypot = std.math.hypot;
+const linux = std.os.linux;

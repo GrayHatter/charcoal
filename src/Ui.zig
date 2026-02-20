@@ -5,7 +5,6 @@ hid: struct {
     mods: u32 = 0,
 } = .{},
 active_buffer: ?*Buffer = null,
-frame_rate: usize = 60,
 
 const Ui = @This();
 
@@ -30,10 +29,9 @@ pub const Event = union(enum) {
     pub const Click = Pointer.Click;
 };
 
-pub fn init(ui: *Ui, comp: *Component, alloc: Allocator, box: Box, ptr: ?*anyopaque) Component.InitError!void {
+pub fn init(ui: *Ui, comp: *Component, alloc: Allocator, box: Box) Component.InitError!void {
     ui.root = comp;
-
-    try ui.root.?.init(alloc, box, ptr);
+    try ui.root.?.init(alloc, box);
 }
 
 pub fn raze(ui: *Ui, a: Allocator) void {
@@ -43,9 +41,9 @@ pub fn raze(ui: *Ui, a: Allocator) void {
     ui.root = null;
 }
 
-pub fn tick(ui: Ui, tik: usize, ptr: ?*anyopaque) void {
+pub fn tick(ui: Ui, tik: usize) void {
     if (ui.root) |root| {
-        root.tick(tik, ptr);
+        root.tick(tik);
     }
 }
 

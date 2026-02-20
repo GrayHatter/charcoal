@@ -25,28 +25,53 @@ pub const Charcoal = struct {
         try c.iterateTick(null, null);
     }
 
-    pub fn iterateTick(c: Charcoal, tik: ?usize, tick_ptr: ?*anyopaque) !void {
+    pub fn iterateTick(c: Charcoal, tik: ?usize) !void {
         if (!c.wayland.connected) return error.WaylandExited;
         try c.wayland.iterate();
 
-        c.ui.tick(tik orelse maxInt(usize), tick_ptr);
+        c.ui.tick(tik orelse maxInt(usize));
     }
 
-    pub fn run(c: *Charcoal) !void {
-        return try c.runTick(null);
-    }
-
-    pub fn runTick(c: *Charcoal, tick_ptr: ?*anyopaque) !void {
-        var timer: std.time.Timer = try .start();
+    pub fn runRateLimit(c: *Charcoal, limit: usize, io: std.Io) !void {
+        var now: std.Io.Timestamp = std.Io.Clock.awake.now(io);
+        const sleep = now.addDuration(.{ .nanoseconds = 1_000_000_000 / limit });
         var i: usize = 0;
-        var sleep_ns = 1_000_000_000 / c.ui.frame_rate;
         var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
         c.ui.background(buffer, .wh(buffer.width, buffer.height));
         c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
         while (c.running and c.wayland.connected) : ({
-            try c.iterateTick(i, tick_ptr);
-            sleep_ns = (1_000_000_000 / c.ui.frame_rate) -| timer.lap();
-            std.Thread.sleep(sleep_ns);
+            const sleep_ns = sleep.withClock(.awake).untilNow(io);
+            try sleep_ns.sleep(io);
+            i +%= 1;
+            try c.iterateTick(i);
+        }) {
+            buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
+            const surface = c.wayland.surface orelse return error.WaylandNotReady;
+            if (i % 100_000 == 0) {
+                @branchHint(.unlikely);
+                if (i % 1_000_000 == 0) c.ui.background(buffer, .wh(buffer.width, buffer.height));
+                c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
+                surface.attach(buffer.buffer, 0, 0);
+                surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
+                surface.commit();
+            } else {
+                c.ui.draw(buffer, .wh(buffer.width, buffer.height));
+                const dmg = buffer.getDamage() orelse continue;
+                surface.attach(buffer.buffer, 0, 0);
+                surface.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
+                surface.commit();
+            }
+            // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
+        }
+    }
+
+    pub fn run(c: *Charcoal) !void {
+        var i: usize = 0;
+        var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
+        c.ui.background(buffer, .wh(buffer.width, buffer.height));
+        c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
+        while (c.running and c.wayland.connected) : ({
+            try c.iterateTick(i);
             i +%= 1;
         }) {
             buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;

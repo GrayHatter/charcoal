@@ -1,15 +1,14 @@
 vtable: VTable,
 box: Box = undefined,
 draw_needed: bool = true,
-state: *anyopaque = undefined,
-children: []Component,
+children: []Component = &.{},
 
 const Component = @This();
 
-pub fn init(comp: *Component, a: Allocator, box: Box, ptr: ?*anyopaque) InitError!void {
+pub fn init(comp: *Component, a: Allocator, box: Box) InitError!void {
     if (comp.vtable.init) |initV| {
-        try initV(comp, a, box, ptr);
-    } else for (comp.children) |*child| try child.init(a, box, ptr);
+        try initV(comp, a, box);
+    } else for (comp.children) |*child| try child.init(a, box);
 }
 
 pub fn raze(comp: *Component, a: Allocator) void {
@@ -18,10 +17,10 @@ pub fn raze(comp: *Component, a: Allocator) void {
     } else for (comp.children) |*child| child.raze(a);
 }
 
-pub fn tick(comp: *Component, tik: usize, ptr: ?*anyopaque) void {
+pub fn tick(comp: *Component, tik: usize) void {
     if (comp.vtable.tick) |tickV| {
-        tickV(comp, tik, ptr);
-    } else for (comp.children) |*child| child.tick(tik, ptr);
+        tickV(comp, tik);
+    } else for (comp.children) |*child| child.tick(tik);
 }
 
 pub fn background(comp: *Component, buffer: *Buffer, box: Box) void {
@@ -38,7 +37,7 @@ pub fn draw(comp: *Component, buffer: *Buffer, box: Box) void {
     }
 }
 
-pub fn keyPress(comp: *Component, evt: KeyEvent) bool {
+pub fn keyPress(comp: *Component, evt: Keyboard.Event) bool {
     if (comp.vtable.keypress) |kp| {
         return kp(comp, evt);
     } else for (comp.children) |*child| {
@@ -95,26 +94,26 @@ pub const VTable = struct {
         .mclick = null,
     };
 
-    pub fn auto(comptime uicomp: type) VTable {
+    pub fn auto(uicomp: type) VTable {
         return .{
-            .init = if (@hasDecl(uicomp, "init")) uicomp.init else null,
-            .raze = if (@hasDecl(uicomp, "raze")) uicomp.raze else null,
-            .tick = if (@hasDecl(uicomp, "tick")) uicomp.tick else null,
-            .background = if (@hasDecl(uicomp, "background")) uicomp.background else null,
-            .draw = if (@hasDecl(uicomp, "draw")) uicomp.draw else null,
-            .keypress = if (@hasDecl(uicomp, "keyPress")) uicomp.keyPress else null,
-            .mmove = if (@hasDecl(uicomp, "mMove")) uicomp.mMove else null,
-            .mclick = if (@hasDecl(uicomp, "mClick")) uicomp.mClick else null,
+            .init = uicomp.init,
+            .raze = uicomp.raze,
+            .tick = uicomp.tick,
+            .background = uicomp.background,
+            .draw = uicomp.draw,
+            .keypress = uicomp.keyPress,
+            .mmove = uicomp.mMove,
+            .mclick = uicomp.mClick,
         };
     }
 };
 
-pub const Init = *const fn (*Component, Allocator, Box, ?*anyopaque) InitError!void;
+pub const Init = *const fn (*Component, Allocator, Box) InitError!void;
 pub const Raze = *const fn (*Component, Allocator) void;
-pub const Tick = *const fn (*Component, usize, ?*anyopaque) void;
+pub const Tick = *const fn (*Component, usize) void;
 pub const Background = *const fn (*Component, *Buffer, Box) void;
 pub const Draw = *const fn (*Component, *Buffer, Box) void;
-pub const KeyPress = *const fn (*Component, KeyEvent) bool;
+pub const KeyPress = *const fn (*Component, Keyboard.Event) bool;
 pub const MMove = *const fn (*Component, Pointer.Motion, Box) void;
 pub const MClick = *const fn (*Component, Pointer.Click) bool;
 
@@ -124,8 +123,8 @@ pub const InitError = error{
 };
 
 const Pointer = Ui.Pointer;
+const Keyboard = Ui.Keyboard;
 const Motion = Pointer.Motion;
-const KeyEvent = Ui.Keyboard.Event;
 
 const Allocator = @import("std").mem.Allocator;
 const Keymap = @import("../Keymap.zig");
