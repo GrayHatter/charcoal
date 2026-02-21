@@ -32,17 +32,18 @@ pub const Charcoal = struct {
         c.ui.tick(tik orelse maxInt(usize));
     }
 
-    pub fn runRateLimit(c: *Charcoal, limit: usize, io: std.Io) !void {
-        const sleep: std.Io.Duration = .{ .nanoseconds = 1_000_000_000 / limit };
-        var now: std.Io.Timestamp = std.Io.Clock.awake.now(io);
+    pub fn runRateLimit(c: *Charcoal, limit: FrameRate, io: std.Io) !void {
+        const sleep: std.Io.Duration = limit.toDelay();
+        var next: std.Io.Timestamp = std.Io.Clock.awake.now(io);
+        next = next.addDuration(sleep);
         var i: usize = 0;
         var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
         c.ui.background(buffer, .wh(buffer.width, buffer.height));
         c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
         while (c.running and c.wayland.connected) : ({
-            const sleep_ns = now.withClock(.awake).untilNow(io);
+            const sleep_ns = next.withClock(.awake).untilNow(io);
             try sleep_ns.sleep(io);
-            now = std.Io.Clock.awake.now(io).addDuration(sleep);
+            next = std.Io.Clock.awake.now(io).addDuration(sleep);
             i +%= 1;
             try c.iterateTick(i);
         }) {
@@ -104,6 +105,40 @@ pub const Charcoal = struct {
         return try .initCapacity(shm, box, extra, "charcoal-wlbuffer");
     }
 };
+
+pub const FrameRate = enum(usize) {
+    unlimited = std.math.maxInt(usize),
+    _,
+
+    const scale = 1_000;
+
+    pub fn fps(rate: anytype) FrameRate {
+        return switch (@typeInfo(@TypeOf(rate))) {
+            .comptime_int => @enumFromInt(rate * scale),
+            .comptime_float => @enumFromInt(@as(usize, @intFromFloat(@trunc(rate * scale)))),
+            .int => |int| switch (int.signedness) {
+                .signed => @compileError("Signed Ints are not implemented FrameRate.fps()"),
+                .unsigned => @enumFromInt(rate * scale),
+            },
+            .float => @enumFromInt(@as(usize, @intFromFloat(@trunc(@as(f64, rate) * scale)))),
+            else => @compileError("Unimplemented type " ++ @typeName(@TypeOf(rate)) ++ " passed to FrameRate.fps()"),
+        };
+    }
+
+    pub fn toDelay(rate: FrameRate) std.Io.Duration {
+        return .{ .nanoseconds = -@as(i96, @intCast(@divFloor(1_000_000_000 * scale, @intFromEnum(rate)))) };
+    }
+};
+
+test FrameRate {
+    var fr: FrameRate = .fps(10);
+    fr = .fps(10.0);
+    fr = .fps(@as(usize, 10));
+    fr = .fps(@as(f16, 10));
+    const delay: std.Io.Duration = .{ .nanoseconds = -16666666 };
+    fr = .fps(60);
+    try std.testing.expectEqualDeep(delay, fr.toDelay());
+}
 
 pub const Buffer = @import("Buffer.zig");
 pub const Ui = @import("Ui.zig");
