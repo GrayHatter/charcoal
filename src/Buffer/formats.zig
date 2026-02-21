@@ -1,3 +1,20 @@
+pub const Format = enum {
+    argb,
+    bgra,
+
+    pub fn Type(f: Format) type {
+        return switch (f) {
+            .argb => ARGB,
+            .bgra => BGRA,
+        };
+    }
+};
+
+pub const Color = union(Format) {
+    argb: ARGB,
+    bgra: BGRA,
+};
+
 pub const ARGB = enum(u32) {
     transparent = 0x00000000,
     white = 0xffffffff,
@@ -42,13 +59,22 @@ pub const ARGB = enum(u32) {
         pub const B = 0x00;
     };
 
-    pub fn rgb(r: u8, g: u8, b: u8) ARGB {
-        const color: u32 = (0xff000000 |
-            @as(u32, r) << SHIFT.R |
-            @as(u32, g) << SHIFT.G |
-            @as(u32, b) << SHIFT.B);
-
+    /// Color must be in the lowest u8 bit
+    pub fn rgb(r: u32, g: u32, b: u32) ARGB {
+        const a: u32 = 0xff000000; // preshifted
+        const color: u32 = (a | r << SHIFT.R | g << SHIFT.G | b << SHIFT.B);
         return @enumFromInt(color);
+    }
+
+    /// Ordered to RGB A
+    pub fn components(color: ARGB) struct { u8, u8, u8, u8 } {
+        const c = color.int();
+        return .{
+            (c & MASK.R) >> SHIFT.R,
+            (c & MASK.G) >> SHIFT.G,
+            (c & MASK.B) >> SHIFT.B,
+            (c & MASK.A) >> SHIFT.A,
+        };
     }
 
     pub fn int(color: ARGB) u32 {

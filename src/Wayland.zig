@@ -73,7 +73,7 @@ pub fn raze(w: *Wayland) void {
     if (w.surface) |s| s.destroy();
 }
 
-pub fn roundtrip(w: *Wayland) !void {
+pub fn roundtrip(w: *const Wayland) !void {
     switch (w.display.roundtrip()) {
         .SUCCESS => {},
         else => |wut| {
@@ -93,7 +93,7 @@ pub fn iterate(w: Wayland) !void {
     }
 }
 
-pub fn attach(w: *Wayland, b: Buffer) !void {
+pub fn attach(w: *const Wayland, b: *const Buffer) !void {
     const surface = w.surface orelse return error.NoSurface;
     surface.attach(b.buffer, 0, 0);
     surface.commit();
@@ -108,14 +108,14 @@ pub fn rename(w: *Wayland, name: []const u8) !void {
     }
 }
 
-pub fn resize(w: *Wayland, box: Buffer.Box) !void {
-    if (w.toplevel) |tl| {
-        tl.setMaxSize(@intCast(box.w), @intCast(box.h));
-        tl.setMinSize(@intCast(box.w), @intCast(box.h));
-    }
-    if (w.xdgsurface) |xs| {
-        xs.setWindowGeometry(@intCast(box.x), @intCast(box.y), @intCast(box.w), @intCast(box.h));
-    }
+pub fn resize(w: *const Wayland, box: Buffer.Box) !void {
+    const tl = w.toplevel orelse return error.TopLevelNotReady;
+    tl.setMaxSize(@intCast(box.w), @intCast(box.h));
+    tl.setMinSize(@intCast(box.w), @intCast(box.h));
+
+    const xdg_sur = w.xdgsurface orelse return error.XdgSurfaceNotReady;
+    xdg_sur.setWindowGeometry(@intCast(box.x), @intCast(box.y), @intCast(box.w), @intCast(box.h));
+
     if (w.surface) |s| s.commit();
     try w.roundtrip();
 }
@@ -136,6 +136,15 @@ pub fn quit(wl: *Wayland) void {
 pub fn getUi(wl: *Wayland) *Ui {
     const char: *Charcoal = @fieldParentPtr("wayland", wl);
     return &char.ui;
+}
+
+pub fn createBuffer(wl: *const Wayland, box: Buffer.Box, name: [:0]const u8) !Buffer {
+    return try wl.createBufferCapacity(box, box, name);
+}
+
+pub fn createBufferCapacity(wl: *const Wayland, box: Box, extra: Box, name: [:0]const u8) !Buffer {
+    const shm = wl.shm orelse return error.SharedMemoryNotReady;
+    return try .initCapacity(shm, box, extra, name);
 }
 
 pub fn initDmabuf(wl: *Wayland) !void {
@@ -162,8 +171,9 @@ const log = std.log.scoped(.charcoal_wayland);
 
 const wayland_ = @import("wayland");
 
-const Charcoal = @import("charcoal.zig").Charcoal;
-const Keymap = @import("Keymap.zig");
+const Box = @import("Box.zig");
 const Buffer = @import("Buffer.zig");
+const Charcoal = @import("charcoal.zig");
+const Keymap = @import("Keymap.zig");
 const Ui = @import("Ui.zig");
 const listeners = @import("listeners.zig");

@@ -16,122 +16,7 @@ const Buffer = @This();
 
 pub const formats = @import("Buffer/formats.zig");
 pub const ARGB = formats.ARGB;
-
-pub const Box = struct {
-    x: usize,
-    y: usize,
-    w: usize,
-    h: usize,
-
-    pub const zero: Box = .{ .x = 0, .y = 0, .w = 0, .h = 0 };
-
-    pub const Delta = struct {
-        x: isize,
-        y: isize,
-        w: isize,
-        h: isize,
-        pub const zero: Delta = .{ .x = 0, .y = 0, .w = 0, .h = 0 };
-
-        pub fn fromBox(b: Box) Delta {
-            return .{
-                .x = @intCast(b.x),
-                .y = @intCast(b.y),
-                .w = @intCast(b.w),
-                .h = @intCast(b.h),
-            };
-        }
-
-        pub fn vector(s: isize) Delta {
-            return .{ .x = s, .y = s, .w = s * -2, .h = s * -2 };
-        }
-
-        pub fn xy(x: isize, y: isize) Delta {
-            return .{ .x = x, .y = y, .w = 0, .h = 0 };
-        }
-
-        pub fn wh(w: isize, h: isize) Delta {
-            return .{ .x = 0, .y = 0, .w = w, .h = h };
-        }
-
-        pub fn xywh(x: isize, y: isize, w: isize, h: isize) Delta {
-            return .{ .x = x, .y = y, .w = w, .h = h };
-        }
-    };
-
-    pub const WH = struct {
-        w: isize,
-        h: isize,
-
-        pub fn wh(w: usize, h: usize) Box {
-            return .{ .w = w, .h = h };
-        }
-
-        pub fn box(wh_: WH) Box {
-            return .wh(wh_.w, wh_.h);
-        }
-    };
-
-    pub const XY = struct {
-        x: isize,
-        y: isize,
-
-        pub fn xy(x: isize, y: isize) XY {
-            return .{ .x = x, .y = y };
-        }
-
-        pub fn box(xy_: XY) Box {
-            return .xy(xy_.x, xy_.y);
-        }
-    };
-
-    /// Box.x + Box.w
-    pub inline fn x2(b: Box) usize {
-        return b.x + b.w;
-    }
-
-    /// Box.y + Box.w
-    pub inline fn y2(b: Box) usize {
-        return b.y + b.h;
-    }
-
-    pub fn xy(x: usize, y: usize) Box {
-        return .{ .x = x, .y = y, .w = 0, .h = 0 };
-    }
-
-    pub fn xywh(x: usize, y: usize, w: usize, h: usize) Box {
-        return .{ .x = x, .y = y, .w = w, .h = h };
-    }
-
-    pub fn wh(w: usize, h: usize) Box {
-        return .{ .w = w, .h = h, .x = 0, .y = 0 };
-    }
-
-    pub fn radius(x: usize, y: usize, r: usize) Box {
-        return .{ .x = x, .y = y, .w = r, .h = r };
-    }
-
-    pub fn merge(src: *Box, delta: Delta) void {
-        src.x = @max(0, @as(isize, @intCast(src.x)) + delta.x);
-        src.y = @max(0, @as(isize, @intCast(src.y)) + delta.y);
-        src.w = @max(0, @as(isize, @intCast(src.w)) + delta.w);
-        src.h = @max(0, @as(isize, @intCast(src.h)) + delta.h);
-    }
-
-    pub fn add(src: Box, d: Delta) Box {
-        var box = src;
-        box.merge(d);
-        return box;
-    }
-
-    /// unstable api
-    pub fn within(box: Box, pos: Box) bool {
-        if (pos.x < box.x or pos.y < box.y) return false;
-        if (pos.x > box.w or pos.y > box.w) return false;
-        if (pos.w > 0 and pos.x2() > box.x2()) return false;
-        if (pos.y > 0 and pos.y2() > box.y2()) return false;
-        return true;
-    }
-};
+pub const Box = @import("Box.zig");
 
 pub const Direction = enum {
     north,
@@ -144,14 +29,15 @@ pub const Direction = enum {
     north_west,
 };
 
-pub fn init(shm: *wl.Shm, box: Box, name: []const u8) !Buffer {
+pub fn init(shm: *wl.Shm, box: Box, name: [:0]const u8) !Buffer {
     return try initCapacity(shm, box, box, name);
 }
 
 pub fn initCapacity(shm: *wl.Shm, active: Box, extra: Box, name: [:0]const u8) !Buffer {
-    const width: u31 = @intCast(extra.w);
-    const stride: u31 = width * 4;
-    const height: u31 = @intCast(extra.h);
+    const color_byte_size = 4;
+    const width: u31 = @intCast(@max(active.w, extra.w));
+    const stride: u31 = width * color_byte_size;
+    const height: u31 = @intCast(@max(active.h, extra.h));
     const size: u31 = stride * height;
 
     const active_width: u31 = @intCast(active.w);
@@ -214,12 +100,16 @@ pub fn getDamage(b: *Buffer) ?Box {
     return b.damage;
 }
 
+pub fn damageAll(b: *Buffer) void {
+    b.addDamage(.wh(b.width, b.height));
+}
+
 fn rowSlice(b: Buffer, y: usize) []u32 {
     return b.raw[b.stride * y ..][0..b.width];
 }
 
 pub fn draw(b: Buffer, box: Box, src: []const u32) void {
-    for (0..box.h, box.y..box.y + box.h) |sy, dy| {
+    for (0..box.h, box.y..box.y2()) |sy, dy| {
         @memcpy(
             b.rowSlice(dy)[box.x..][0..box.w],
             src[sy * box.w ..][0..box.w],
@@ -262,7 +152,7 @@ pub fn copyFrom(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void
     assert(box.w <= src_box.w);
     assert(box.h <= src_box.h);
 
-    for (0..box.h, box.y..box.y + box.h) |sy, dy| {
+    for (0..box.h, box.y..box.y2()) |sy, dy| {
         const src_row = src[(sy + src_box.y) * src_box.w ..][0..src_box.w];
         @memcpy(
             b.rowSlice(dy)[box.x..][0..box.w],
@@ -272,7 +162,7 @@ pub fn copyFrom(b: Buffer, T: type, box: Box, src: []const T, src_box: Box) void
 }
 
 pub fn copy(b: Buffer, T: type, box: Box, src: []const T) void {
-    for (0..box.h, box.y..box.y + box.h) |sy, dy| {
+    for (0..box.h, box.y..box.y2()) |sy, dy| {
         @memcpy(
             b.rowSlice(dy)[box.x..][0..box.w],
             @as([]const u32, @ptrCast(src[sy * box.w ..][0..box.w])),
@@ -314,20 +204,18 @@ pub fn drawEmboss(b: *Buffer, T: type, box: Box, direction: Direction, high: T, 
 
 pub fn drawRectangle(b: *Buffer, T: type, box: Box, ecolor: T) void {
     b.addDamage(box);
-    const width = box.x + box.w;
-    const height = box.y + box.h;
     const color: u32 = @intFromEnum(ecolor);
     assert(box.w > 1);
     assert(box.h > 1);
-    for (box.y + 1..height - 1) |y| {
+    for (box.y + 1..box.y2() -| 1) |y| {
         const row = b.rowSlice(y);
         row[box.x] = color;
-        row[width - 1] = color;
+        row[box.x2() -| 1] = color;
     }
     const top = b.rowSlice(box.y);
-    @memset(top[box.x..width], color);
-    const bottom = b.rowSlice(height - 1);
-    @memset(bottom[box.x..width], color);
+    @memset(top[box.x..box.x2()], color);
+    const bottom = b.rowSlice(box.y2() -| 1);
+    @memset(bottom[box.x..box.x2()], color);
 }
 
 pub fn drawRectangleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
@@ -346,11 +234,10 @@ pub fn drawRectangleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
 pub fn drawRectangleFillMix(b: *Buffer, T: type, box: Box, ecolor: T) void {
     b.addDamage(box);
     //const width = box.x + box.w;
-    const height = box.y + box.h;
     //const color: u32 = @intFromEnum(ecolor);
     assert(box.w > 1);
     assert(box.h > 1);
-    for (box.y..height) |y| {
+    for (box.y..box.y2()) |y| {
         const row = b.rowSlice(y);
         for (box.x..box.x2()) |x| {
             ecolor.mixInt(&row[x]);

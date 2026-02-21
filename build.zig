@@ -24,10 +24,12 @@ pub fn build(b: *std.Build) void {
 
     const wayland = b.createModule(.{ .root_source_file = scanner.result });
 
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
     const charcoal = b.addModule("charcoal", .{
         .root_source_file = b.path("src/charcoal.zig"),
-        .target = b.standardTargetOptions(.{}),
-        .optimize = b.standardOptimizeOption(.{}),
+        .target = target,
+        .optimize = optimize,
         .link_libc = true,
     });
 
@@ -38,4 +40,22 @@ pub fn build(b: *std.Build) void {
     const run_charcoal_tests = b.addRunArtifact(charcoal_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_charcoal_tests.step);
+
+    {
+        const demo = b.createModule(.{
+            .root_source_file = b.path("demo/demo.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "charcoal", .module = charcoal },
+            },
+        });
+        const demo_exe = b.addExecutable(.{ .name = "demo", .root_module = demo });
+        const demo_build_step = b.step("demo-build", "build demo test thing");
+        demo_build_step.dependOn(&demo_exe.step);
+
+        const text_run_cmd = b.addRunArtifact(demo_exe);
+        const text_run_step = b.step("demo", "Run gui demo test thing");
+        text_run_step.dependOn(&text_run_cmd.step);
+    }
 }

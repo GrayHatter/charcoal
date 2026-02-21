@@ -29,9 +29,10 @@ pub const Event = union(enum) {
     pub const Click = Pointer.Click;
 };
 
-pub fn init(ui: *Ui, comp: *Component, alloc: Allocator, box: Box) Component.InitError!void {
-    ui.root = comp;
-    try ui.root.?.init(alloc, box);
+pub fn init(ui: *Ui, root: *Component, buffer: *Buffer, box: Box, alloc: ?Allocator) Component.InitError!void {
+    ui.root = root;
+    ui.active_buffer = buffer;
+    try ui.root.?.init(box, alloc);
 }
 
 pub fn raze(ui: *Ui, a: Allocator) void {
@@ -42,9 +43,7 @@ pub fn raze(ui: *Ui, a: Allocator) void {
 }
 
 pub fn tick(ui: Ui, tik: usize) void {
-    if (ui.root) |root| {
-        root.tick(tik);
-    }
+    if (ui.root) |root| root.tick(tik);
 }
 
 pub fn background(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
@@ -54,19 +53,13 @@ pub fn background(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
 
 pub fn draw(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
-    if (root.draw_needed) {
-        root.draw(buffer, box);
-    }
-}
-
-fn setDraw(cm: *Ui.Component) void {
-    for (cm.children) |*c| c.draw_needed = true;
-    cm.draw_needed = true;
+    if (root.draw_needed) root.draw(buffer, box);
 }
 
 pub fn redraw(ui: Ui, buffer: *Buffer, box: Buffer.Box) void {
     const root = ui.root orelse return;
-    setDraw(root);
+    for (root.children) |*c| c.draw_needed = true;
+    root.draw_needed = true;
     root.draw(buffer, box);
 }
 
@@ -373,8 +366,7 @@ pub fn newKeymap(u: *Ui, evt: Wayland.Keyboard.Event) void {
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const log = std.log.scoped(.charcoal_ui);
-const charcoal = @import("charcoal.zig");
-const Charcoal = charcoal.Charcoal;
+const Charcoal = @import("charcoal.zig");
 const Wayland = @import("Wayland.zig");
 const Keymap = @import("Keymap.zig");
 const KMod = Keymap.KMod;

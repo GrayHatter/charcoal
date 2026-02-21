@@ -1,110 +1,96 @@
-pub const Charcoal = struct {
-    wayland: Wayland,
-    ui: Ui,
+wayland: Wayland,
+ui: Ui,
+running: bool = true,
 
-    running: bool = true,
+const Charcoal = @This();
 
-    pub fn init() !Charcoal {
-        const waylnd: Wayland = try .init();
-        return .{
-            .wayland = waylnd,
-            .ui = .{},
-        };
+pub const Box = @import("Box.zig");
+pub const Buffer = @import("Buffer.zig");
+pub const TrueType = @import("truetype.zig");
+pub const Ui = @import("Ui.zig");
+pub const Wayland = @import("Wayland.zig");
+
+pub fn init() !Charcoal {
+    const waylnd: Wayland = try .init();
+    return .{
+        .wayland = waylnd,
+        .ui = .{},
+    };
+}
+
+pub fn connect(c: *Charcoal) !void {
+    try c.wayland.handshake();
+}
+
+pub fn raze(c: *Charcoal) void {
+    c.wayland.raze();
+}
+
+pub fn tickWithEvents(c: *const Charcoal, tik: usize) !void {
+    if (!c.wayland.connected) return error.WaylandExited;
+    try c.wayland.iterate();
+    c.ui.tick(tik);
+}
+
+inline fn redraw(tick: usize, ui: *const Ui, buffer: *Buffer, srfc: *Wayland.Surface) void {
+    if (tick % 100_000 == 0) {
+        @branchHint(.unlikely);
+        if (tick % 1_000_000 == 0) ui.background(buffer, .wh(buffer.width, buffer.height));
+        ui.redraw(buffer, .wh(buffer.width, buffer.height));
+        srfc.attach(buffer.buffer, 0, 0);
+        srfc.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
+        srfc.commit();
+        return;
     }
 
-    pub fn connect(c: *Charcoal) !void {
-        try c.wayland.handshake();
-    }
+    ui.draw(buffer, .wh(buffer.width, buffer.height));
+    const dmg = buffer.getDamage() orelse return;
+    // We're required to reattach the buffer every time :/
+    srfc.attach(buffer.buffer, 0, 0);
+    srfc.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
+    srfc.commit();
+}
 
-    pub fn raze(c: *Charcoal) void {
-        c.wayland.raze();
-        //c.ui.raze();
+pub fn runRateLimit(c: *const Charcoal, limit: FrameRate, io: std.Io) !void {
+    const surface = c.wayland.surface orelse return error.WaylandNotReady;
+    const sleep: std.Io.Duration = limit.toDelay();
+    var next: std.Io.Timestamp = std.Io.Clock.awake.now(io);
+    var i: usize = 0;
+    // Damage the whole buffer on the first draw
+    if (c.ui.active_buffer) |buf| buf.damageAll();
+    while (c.running and c.wayland.connected) {
+        defer i +%= 1;
+        next = std.Io.Clock.awake.now(io).addDuration(sleep);
+        try c.tickWithEvents(i);
+        if (c.ui.active_buffer) |buf| redraw(i, &c.ui, buf, surface);
+        const sleep_ns = next.withClock(.awake).untilNow(io);
+        try sleep_ns.sleep(io);
     }
+}
 
-    pub fn iterate(c: Charcoal) !void {
-        try c.iterateTick(null, null);
+pub fn run(c: *Charcoal) !void {
+    const surface = c.wayland.surface orelse return error.WaylandNotReady;
+    var i: usize = 0;
+    if (c.ui.active_buffer) |buf| buf.damageAll();
+    while (c.running and c.wayland.connected) {
+        defer i +%= 1;
+        try c.tickWithEvents(i);
+        if (c.ui.active_buffer) |*buf| redraw(i, &c.ui, buf, surface);
     }
+}
 
-    pub fn iterateTick(c: Charcoal, tik: ?usize) !void {
-        if (!c.wayland.connected) return error.WaylandExited;
-        try c.wayland.iterate();
+/// This can be used to create a single buffer with name `charcoal-wlbuffer`. For additional
+/// buffers, call `createBufferCapacity` or `Wayland.createBuffer` directly.
+pub fn createBuffer(c: *const Charcoal, box: Box) !Buffer {
+    const buffer = try c.createBufferCapacity(box, box, "charcoal-wlbuffer");
+    try c.wayland.resize(box);
+    try c.wayland.attach(&buffer);
+    return buffer;
+}
 
-        c.ui.tick(tik orelse maxInt(usize));
-    }
-
-    pub fn runRateLimit(c: *Charcoal, limit: FrameRate, io: std.Io) !void {
-        const sleep: std.Io.Duration = limit.toDelay();
-        var next: std.Io.Timestamp = std.Io.Clock.awake.now(io);
-        next = next.addDuration(sleep);
-        var i: usize = 0;
-        var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
-        c.ui.background(buffer, .wh(buffer.width, buffer.height));
-        c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
-        while (c.running and c.wayland.connected) : ({
-            const sleep_ns = next.withClock(.awake).untilNow(io);
-            try sleep_ns.sleep(io);
-            next = std.Io.Clock.awake.now(io).addDuration(sleep);
-            i +%= 1;
-            try c.iterateTick(i);
-        }) {
-            buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
-            const surface = c.wayland.surface orelse return error.WaylandNotReady;
-            if (i % 100_000 == 0) {
-                @branchHint(.unlikely);
-                if (i % 1_000_000 == 0) c.ui.background(buffer, .wh(buffer.width, buffer.height));
-                c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
-                surface.attach(buffer.buffer, 0, 0);
-                surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
-                surface.commit();
-            } else {
-                c.ui.draw(buffer, .wh(buffer.width, buffer.height));
-                const dmg = buffer.getDamage() orelse continue;
-                surface.attach(buffer.buffer, 0, 0);
-                surface.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
-                surface.commit();
-            }
-            // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
-        }
-    }
-
-    pub fn run(c: *Charcoal) !void {
-        var i: usize = 0;
-        var buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
-        c.ui.background(buffer, .wh(buffer.width, buffer.height));
-        c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
-        while (c.running and c.wayland.connected) : ({
-            try c.iterateTick(i);
-            i +%= 1;
-        }) {
-            buffer = c.ui.active_buffer orelse return error.DrawBufferMissing;
-            const surface = c.wayland.surface orelse return error.WaylandNotReady;
-            if (i % 100_000 == 0) {
-                @branchHint(.unlikely);
-                if (i % 1_000_000 == 0) c.ui.background(buffer, .wh(buffer.width, buffer.height));
-                c.ui.redraw(buffer, .wh(buffer.width, buffer.height));
-                surface.attach(buffer.buffer, 0, 0);
-                surface.damage(0, 0, @intCast(buffer.width), @intCast(buffer.height));
-                surface.commit();
-            } else {
-                c.ui.draw(buffer, .wh(buffer.width, buffer.height));
-                const dmg = buffer.getDamage() orelse continue;
-                surface.attach(buffer.buffer, 0, 0);
-                surface.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
-                surface.commit();
-            }
-            // if (i % 1000 == 0) log.debug("tick {d:10}", .{i / 1000});
-        }
-    }
-
-    pub fn createBuffer(c: Charcoal, box: Buffer.Box) !Buffer {
-        return try c.createBufferCapacity(box, box);
-    }
-
-    pub fn createBufferCapacity(c: Charcoal, box: Box, extra: Box) !Buffer {
-        const shm = c.wayland.shm orelse return error.NoWlShm;
-        return try .initCapacity(shm, box, extra, "charcoal-wlbuffer");
-    }
-};
+pub fn createBufferCapacity(c: *const Charcoal, box: Box, extra: Box, name: [:0]const u8) !Buffer {
+    return try c.wayland.createBufferCapacity(box, extra, name);
+}
 
 pub const FrameRate = enum(usize) {
     unlimited = std.math.maxInt(usize),
@@ -140,21 +126,16 @@ test FrameRate {
     try std.testing.expectEqualDeep(delay, fr.toDelay());
 }
 
-pub const Buffer = @import("Buffer.zig");
-pub const Ui = @import("Ui.zig");
-pub const Wayland = @import("Wayland.zig");
-pub const TrueType = @import("truetype.zig");
-
 test {
+    _ = &Box;
     _ = &Buffer;
+    _ = &TrueType;
     _ = &Ui;
     _ = &Wayland;
-    _ = &TrueType;
     _ = std.testing.refAllDecls(@This());
 }
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const log = std.log.scoped(.charcoal);
-const Box = Buffer.Box;
 const maxInt = std.math.maxInt;
