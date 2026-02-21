@@ -287,6 +287,7 @@ pub fn drawLine(b: *Buffer, T: type, box: Box, color: T) void {
 }
 
 pub fn drawLineV(b: *Buffer, T: type, box: Box, color: T) void {
+    b.addDamage(box);
     assert(box.w <= 1);
     for (box.y..box.y2()) |y| {
         b.rowSlice(y)[box.x] = @intFromEnum(color);
