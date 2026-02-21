@@ -85,12 +85,16 @@ pub fn resize(b: *Buffer, new: Box) !void {
     b.height = @intCast(new.h);
 }
 
-pub fn addDamage(b: *Buffer, box: Box) void {
+pub fn addDamage(b: *Buffer, dmg: Box) void {
+    if (@max(b.damage.x, b.damage.y, b.damage.w, b.damage.h) == 0) {
+        b.damage = .{ .x = dmg.x, .y = dmg.y, .w = dmg.x2(), .h = dmg.y2() };
+        return;
+    }
     b.damage = .{
-        .x = @min(b.damage.x, box.x),
-        .y = @min(b.damage.y, box.y),
-        .w = @max(b.damage.w, box.x2()),
-        .h = @max(b.damage.h, box.y2()),
+        .x = @min(b.damage.x, dmg.x),
+        .y = @min(b.damage.y, dmg.y),
+        .w = @max(b.damage.w, dmg.x2()),
+        .h = @max(b.damage.h, dmg.y2()),
     };
 }
 
@@ -343,12 +347,10 @@ pub fn drawRectangleRoundedFill(b: *Buffer, T: type, box: Box, base_r: f64, ecol
 }
 
 pub fn drawPoint(b: *Buffer, T: type, box: Box, ecolor: T) void {
-    b.addDamage(box);
     assert(box.w < 2);
     assert(box.h < 2);
     const color: u32 = @intFromEnum(ecolor);
-    const row = b.rowSlice(box.y);
-    row[box.x] = color;
+    b.rowSlice(box.y)[box.x] = color;
 }
 
 pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {

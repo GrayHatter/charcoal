@@ -47,7 +47,7 @@ inline fn redraw(tick: usize, ui: *const Ui, buffer: *Buffer, srfc: *Wayland.Sur
     const dmg = buffer.getDamage() orelse return;
     // We're required to reattach the buffer every time :/
     srfc.attach(buffer.buffer, 0, 0);
-    srfc.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w), @intCast(dmg.h));
+    srfc.damage(@intCast(dmg.x), @intCast(dmg.y), @intCast(dmg.w2()), @intCast(dmg.h2()));
     srfc.commit();
 }
 

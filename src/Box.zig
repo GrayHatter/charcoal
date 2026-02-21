@@ -71,9 +71,19 @@ pub inline fn x2(b: Box) usize {
     return b.x + b.w;
 }
 
-/// Box.y + Box.w
+/// Box.y + Box.h
 pub inline fn y2(b: Box) usize {
     return b.y + b.h;
+}
+
+/// Box.w - Box.x
+pub inline fn w2(b: Box) usize {
+    return b.w - b.x;
+}
+
+/// Box.h + Box.y
+pub inline fn h2(b: Box) usize {
+    return b.h - b.y;
 }
 
 pub fn xy(x: usize, y: usize) Box {

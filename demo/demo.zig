@@ -20,7 +20,7 @@ pub fn main(init: std.process.Init) !void {
     var default_buffer = try char.wayland.createBuffer(box, "buffer1");
     defer default_buffer.raze();
     var color_buffer = try char.wayland.createBuffer(box, "buffer2");
-    defer color_buffer.buffer.destroy();
+    defer color_buffer.raze();
 
     // The buffers are ready, draw the background colors
     try drawColorsPage1(box.w, 0, &default_buffer);
@@ -109,10 +109,12 @@ const Root = struct {
             if (iter / 180 & 1 > 0) {
                 std.debug.print("swap on\n", .{});
                 root.on_color = true;
+                root.extra.colors.damageAll();
                 root.extra.char.ui.active_buffer = root.extra.colors;
             } else {
                 std.debug.print("swap off\n", .{});
                 root.on_color = false;
+                root.extra.buffer.damageAll();
                 root.extra.char.ui.active_buffer = root.extra.buffer;
             }
         }
