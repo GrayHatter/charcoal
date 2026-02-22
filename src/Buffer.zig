@@ -29,6 +29,47 @@ pub const Direction = enum {
     north_west,
 };
 
+pub const Point = struct {
+    x: f64,
+    y: f64,
+
+    pub fn pt(x: anytype, y: anytype) Point {
+        return .{
+            .x = switch (@TypeOf(x)) {
+                f64 => x,
+                f32 => x,
+                comptime_float => x,
+                usize => @floatFromInt(x),
+                u32 => @floatFromInt(x),
+                comptime_int => x,
+                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
+            },
+            .y = switch (@TypeOf(y)) {
+                f64 => y,
+                f32 => y,
+                comptime_float => y,
+                usize => @floatFromInt(y),
+                u32 => @floatFromInt(y),
+                comptime_int => y,
+                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
+            },
+        };
+    }
+
+    pub fn xyRound(p: Point) Box.XY {
+        // lol
+        const x = @round(p.x);
+        const y = @round(p.y);
+        return .{ .x = @intFromFloat(x), .y = @intFromFloat(y) };
+    }
+
+    pub fn format(point: Point, w: *std.Io.Writer) !void {
+        try w.print("{: >8.4} {: >8.4}      {: >8.4} {: >8.4}", .{
+            point.x, point.y, @round(point.x), @round(point.y),
+        });
+    }
+};
+
 pub fn init(shm: *wl.Shm, box: Box, name: [:0]const u8) !Buffer {
     return try initCapacity(shm, box, box, name);
 }
@@ -497,48 +538,6 @@ pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
         }
     }
 }
-
-pub const Point = struct {
-    x: f64,
-    y: f64,
-
-    pub fn pt(x: anytype, y: anytype) Point {
-        return .{
-            .x = switch (@TypeOf(x)) {
-                f64 => x,
-                f32 => x,
-                comptime_float => x,
-                usize => @floatFromInt(x),
-                u32 => @floatFromInt(x),
-                comptime_int => x,
-                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
-            },
-            .y = switch (@TypeOf(y)) {
-                f64 => y,
-                f32 => y,
-                comptime_float => y,
-                usize => @floatFromInt(y),
-                u32 => @floatFromInt(y),
-                comptime_int => y,
-                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
-            },
-        };
-    }
-
-    pub fn xyRound(p: Point) Box.XY {
-        // lol
-        const x = @round(p.x);
-        const y = @round(p.y);
-
-        return .{ .x = @intFromFloat(x), .y = @intFromFloat(y) };
-    }
-
-    pub fn format(point: Point, w: *std.Io.Writer) !void {
-        try w.print("{: >8.4} {: >8.4}      {: >8.4} {: >8.4}", .{
-            point.x, point.y, @round(point.x), @round(point.y),
-        });
-    }
-};
 
 pub fn drawBezier3(buf: *Buffer, T: type, points: [3]Point, color: T) void {
     const a, const b, const c = points;
