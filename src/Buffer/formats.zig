@@ -1,11 +1,13 @@
 pub const Format = enum {
     argb,
     bgra,
+    bw,
 
     pub fn Type(f: Format) type {
         return switch (f) {
             .argb => ARGB,
             .bgra => BGRA,
+            .bw => BW,
         };
     }
 };
@@ -13,6 +15,7 @@ pub const Format = enum {
 pub const Color = union(Format) {
     argb: ARGB,
     bgra: BGRA,
+    bw: BW,
 };
 
 pub const ARGB = enum(u32) {
@@ -125,7 +128,7 @@ pub const BGRA = enum(u32) {
     black = 0x000000ff,
     _,
 
-    pub fn rgb(r: u8, g: u8, b: u8) ARGB {
+    pub fn rgb(r: u8, g: u8, b: u8) BGRA {
         comptime unreachable; // wrong shifts
         const color: u32 = (0xff000000 |
             @as(u32, r) << 16 |
@@ -142,3 +145,28 @@ pub const BGRA = enum(u32) {
         return @enumFromInt(@as(*align(1) const u32, @ptrCast(&bytes)).*);
     }
 };
+
+pub const BW = enum(u1) {
+    white = 1,
+    black = 0,
+
+    pub fn rgb(r: u8, g: u8, b: u8) BW {
+        return switch (@max(r, g, b)) {
+            0 => .black,
+            else => .white,
+        };
+    }
+
+    pub fn int(color: BW) u1 {
+        return @intFromEnum(color);
+    }
+
+    pub fn fromBytes(bytes: [4]u8) BW {
+        _ = bytes;
+        unreachable;
+    }
+};
+
+test {
+    _ = &@import("std").testing.refAllDecls(@This());
+}
