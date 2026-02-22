@@ -96,7 +96,7 @@ const Root = struct {
 
     pub fn draw(comp: *Ui.Component, buffer: *Buffer, _: Buffer.Box) void {
         const root: *Root = @fieldParentPtr("comp", comp);
-        buffer.drawCircleFill(Buffer.ARGB, .xywh(300, 500, 80, 80), root.color);
+        buffer.drawCircle(Buffer.ARGB, .xy(300, 500), 80, root.color);
     }
 
     pub fn tick(comp: *Ui.Component, iter: usize) void {
@@ -247,15 +247,15 @@ fn drawPage2(_: Allocator, colors: *Buffer) !void {
     colors.drawRectangleFill(Buffer.ARGB, .xywh(90, 75, 50, 50), .purple);
     colors.drawRectangle(Buffer.ARGB, .xywh(50, 50, 50, 50), .green);
 
-    colors.drawCircleFill(Buffer.ARGB, .xywh(300, 200, 50, 50), .purple);
-    colors.drawCircle(Buffer.ARGB, .xywh(200, 200, 50, 50), .purple);
+    colors.drawCircle(Buffer.ARGB, .xy(300, 200), 50, .purple);
+    colors.drawRing(Buffer.ARGB, .xy(200, 200), 50, .purple);
 
-    colors.drawCircle(Buffer.ARGB, .xywh(800, 100, 50, 50), .purple);
-    colors.drawCircleFill(Buffer.ARGB, .xywh(700, 100, 50, 50), .purple);
+    colors.drawRing(Buffer.ARGB, .xy(800, 100), 50, .purple);
+    colors.drawCircle(Buffer.ARGB, .xy(700, 100), 50, .purple);
 
     colors.drawPoint(Buffer.ARGB, .xy(300, 200), .black);
 
-    colors.drawCircleCentered(Buffer.ARGB, .radius(700, 100, 11), .cyan);
+    colors.drawCircleCentered(Buffer.ARGB, .xy(700, 100), 11, .cyan);
     colors.drawPoint(Buffer.ARGB, .xy(700, 100), .black);
 
     colors.drawRectangleRounded(Buffer.ARGB, .xywh(10, 300, 200, 50), 10, .red);

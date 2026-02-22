@@ -80,7 +80,7 @@ pub const ARGB = enum(u32) {
         };
     }
 
-    pub fn int(color: ARGB) u32 {
+    pub inline fn int(color: ARGB) u32 {
         return @intFromEnum(color);
     }
 
@@ -103,7 +103,7 @@ pub const ARGB = enum(u32) {
         src.mixInt(p);
     }
 
-    pub fn mixInt(src: ARGB, dest: *u32) void {
+    pub fn mixInto(src: ARGB, dest: *u32) void {
         const alp: u32 = (src.int() & MASK.A) >> SHIFT.A;
         const red: u32 = (src.int() & MASK.R) >> SHIFT.R;
         const gre: u32 = (src.int() & MASK.G) >> SHIFT.G;

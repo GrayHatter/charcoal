@@ -126,6 +126,13 @@ pub fn resize(b: *Buffer, new: Box) !void {
     b.height = @intCast(new.h);
 }
 
+/// Adds the damage to the buffer, and assert the drawing was in bounds. Used by drawing functions
+/// before disabling runtime safety checks.
+pub fn addDamageAssert(b: *Buffer, dmg: Box) void {
+    b.addDamage(dmg);
+    assert(b.width >= dmg.x2() and b.height >= dmg.y2());
+}
+
 pub fn addDamage(b: *Buffer, dmg: Box) void {
     if (@max(b.damage.x, b.damage.y, b.damage.w, b.damage.h) == 0) {
         b.damage = .{ .x = dmg.x, .y = dmg.y, .w = dmg.x2(), .h = dmg.y2() };
@@ -149,7 +156,7 @@ pub fn damageAll(b: *Buffer) void {
     b.addDamage(.wh(b.width, b.height));
 }
 
-fn rowSlice(b: Buffer, y: usize) []u32 {
+inline fn rowSlice(b: Buffer, y: usize) []u32 {
     return b.raw[b.stride * y ..][0..b.width];
 }
 
@@ -285,7 +292,7 @@ pub fn drawRectangleFillMix(b: *Buffer, T: type, box: Box, ecolor: T) void {
     for (box.y..box.y2()) |y| {
         const row = b.rowSlice(y);
         for (box.x..box.x2()) |x| {
-            ecolor.mixInt(&row[x]);
+            ecolor.mixInto(&row[x]);
         }
     }
 }
@@ -406,56 +413,58 @@ pub fn drawFPoint(b: *Buffer, T: type, point: Point, rule: enum { hard, soft }, 
     }
 }
 
-pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
-    b.addDamage(box);
-    const color: u32 = @intFromEnum(ecolor);
-    const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
-    for (box.y..box.y + box.w, 0..) |dst_y, y| {
+const Fill = enum { fill, ring };
+
+inline fn ellipse(b: *Buffer, T: type, sy: usize, sx: usize, rx: usize, ry: usize, hx: f64, hy: f64, color: T, comptime fill: Fill) void {
+    @setRuntimeSafety(false);
+    b.addDamageAssert(.xywh(sx, sy, rx, ry));
+    for (sy..sy + ry, 0..) |dst_y, y| {
         const row = b.rowSlice(dst_y);
-        for (box.x..box.x + box.w, 0..) |dst_x, x| {
-            const dx: f64 = @as(f64, @floatFromInt(x)) - half;
-            const dy: f64 = @as(f64, @floatFromInt(y)) - half;
-            const pixel: f64 = hypot(dx, dy) - half + 0.5;
-            if (pixel <= 1) row[dst_x] = color;
+        for (sx..sx + rx, 0..) |dst_x, x| {
+            const dx: f64 = @as(f64, @floatFromInt(x)) - hx;
+            const dy: f64 = @as(f64, @floatFromInt(y)) - hy;
+            const pixel: f64 = hypot(dx, dy) - hx + 0.5;
+            if (fill == .fill) {
+                if (pixel <= 1) row[dst_x] = color.int();
+            } else if (fill == .ring) {
+                if (pixel < 1.5 and pixel > 0.5) row[dst_x] = color.int();
+            } else comptime unreachable;
         }
     }
+}
+
+inline fn circle(b: *Buffer, T: type, sy: usize, sx: usize, r: usize, half: f64, color: T, comptime fill: Fill) void {
+    b.ellipse(T, sy, sx, r, r, half, half, color, fill);
+}
+
+pub fn drawEllipse(b: *Buffer, T: type, box: Box, color: T) void {
+    const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
+    b.circle(T, box.y, box.x, box.w, half, color, .fill);
+}
+
+pub fn drawCircleCentered(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
+    assert(@min(box.x, box.y) > r >> 1); // This should be supported, but currently unimplemented
+    const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
+    const adj: u32 = @intFromFloat(@floor(half + 0.6));
+    b.circle(T, box.y - adj, box.x - adj, r, half, color, .fill);
+}
+
+pub fn drawCircle(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
+    const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
+    b.circle(T, box.y, box.x, r, half, color, .fill);
 }
 
 /// TODO add support for center vs corner alignment
-pub fn drawCircle(b: *Buffer, T: type, box: Box, ecolor: T) void {
-    b.addDamage(box);
-    const color: u32 = @intFromEnum(ecolor);
-    const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
-    for (box.y..box.y + box.w, 0..) |dst_y, y| {
-        const row = b.rowSlice(dst_y);
-        for (box.x..box.x + box.w, 0..) |dst_x, x| {
-            const dx: f64 = @as(f64, @floatFromInt(x)) - half;
-            const dy: f64 = @as(f64, @floatFromInt(y)) - half;
-            const pixel: f64 = hypot(dx, dy) - half + 0.5;
-            if (pixel < 1.5 and pixel > 0.5) row[dst_x] = color;
-        }
-    }
+pub fn drawRing(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
+    const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
+    b.circle(T, box.y, box.x, r, half, color, .ring);
 }
 
-pub fn drawCircleCentered(b: *Buffer, T: type, box: Box, ecolor: T) void {
-    b.addDamage(box);
-    assert(box.h == box.w);
-    assert(box.x > (box.w - 1) / 2);
-    assert(box.y > (box.h - 1) / 2);
-    const color: u32 = @intFromEnum(ecolor);
-    const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
-    const adj_x: u32 = @truncate(box.x - @as(u32, @intFromFloat(@floor(half + 0.6))));
-    const adj_y: u32 = @truncate(box.y - @as(u32, @intFromFloat(@floor(half + 0.6))));
-
-    for (adj_y..adj_y + box.h, 0..) |dst_y, y| {
-        const row = b.rowSlice(dst_y);
-        for (adj_x..adj_x + box.w, 0..) |dst_x, x| {
-            const dx: f64 = @as(f64, @floatFromInt(x)) - half;
-            const dy: f64 = @as(f64, @floatFromInt(y)) - half;
-            const pixel: f64 = hypot(dx, dy) - half + 0.5;
-            if (pixel <= 1) row[dst_x] = color;
-        }
-    }
+pub fn drawRingCentered(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
+    assert(@min(box.x, box.y) > (r - 1) / 2); // This should be supported, but currently unimplemented
+    const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
+    const adj: u32 = @intFromFloat(@floor(half + 0.6));
+    b.circle(T, box.y - adj, box.x - adj, r, half, color, .ring);
 }
 
 pub fn drawTrianglePoints(b: *Buffer, T: type, box: Box, color: T, points: [3]Point) void {
@@ -534,7 +543,7 @@ pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
             const p: u8 = src[sy * box.w + sx];
             if (p == 0) continue;
             const color2 = color.alpha(p);
-            color2.mixInt(&row[dx]);
+            color2.mixInto(&row[dx]);
         }
     }
 }
