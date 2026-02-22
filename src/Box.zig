@@ -54,15 +54,19 @@ pub const WH = struct {
 };
 
 pub const XY = struct {
-    x: isize,
-    y: isize,
+    x: usize,
+    y: usize,
 
-    pub fn xy(x: isize, y: isize) XY {
+    pub fn xy(x: usize, y: usize) XY {
         return .{ .x = x, .y = y };
     }
 
     pub fn box(xy_: XY) Box {
         return .xy(xy_.x, xy_.y);
+    }
+
+    pub fn fromBox(b: Box) XY {
+        return .xy(b.x, b.y);
     }
 };
 
@@ -84,6 +88,10 @@ pub inline fn w2(b: Box) usize {
 /// Box.h + Box.y
 pub inline fn h2(b: Box) usize {
     return b.h - b.y;
+}
+
+pub fn toXY(b: Box) XY {
+    return .xy(b.x, b.y);
 }
 
 pub fn xy(x: usize, y: usize) Box {

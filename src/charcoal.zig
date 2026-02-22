@@ -75,7 +75,7 @@ pub fn run(c: *Charcoal) !void {
     while (c.running and c.wayland.connected) {
         defer i +%= 1;
         try c.tickWithEvents(i);
-        if (c.ui.active_buffer) |*buf| redraw(i, &c.ui, buf, surface);
+        if (c.ui.active_buffer) |buf| redraw(i, &c.ui, buf, surface);
     }
 }
 

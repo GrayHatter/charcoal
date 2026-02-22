@@ -346,11 +346,23 @@ pub fn drawRectangleRoundedFill(b: *Buffer, T: type, box: Box, base_r: f64, ecol
     @memset(bottom[box.x + radius .. box.x2() - radius], color);
 }
 
-pub fn drawPoint(b: *Buffer, T: type, box: Box, ecolor: T) void {
-    assert(box.w < 2);
-    assert(box.h < 2);
+pub fn drawPoint(b: *Buffer, T: type, pos: Box.XY, ecolor: T) void {
     const color: u32 = @intFromEnum(ecolor);
-    b.rowSlice(box.y)[box.x] = color;
+    b.rowSlice(pos.y)[pos.x] = color;
+}
+
+pub fn drawFPoint(b: *Buffer, T: type, point: Point, rule: enum { hard, soft }, ecolor: T) void {
+    const color: u32 = @intFromEnum(ecolor);
+    switch (rule) {
+        .hard => {
+            const pos = point.xyRound();
+            b.rowSlice(pos.y)[pos.x] = color;
+        },
+        .soft => {
+            const pos = point.xyRound();
+            b.rowSlice(pos.y)[pos.x] = color;
+        },
+    }
 }
 
 pub fn drawCircleFill(b: *Buffer, T: type, box: Box, ecolor: T) void {
@@ -477,7 +489,7 @@ pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
     b.addDamage(box);
     for (0..box.h, box.y..) |sy, dy| {
         const row = b.rowSlice(dy);
-        for (box.x..box.x + box.w, 0..) |dx, sx| {
+        for (box.x..box.x2(), 0..) |dx, sx| {
             const p: u8 = src[sy * box.w + sx];
             if (p == 0) continue;
             const color2 = color.alpha(p);
@@ -486,9 +498,104 @@ pub fn drawFont(b: *Buffer, T: type, color: T, box: Box, src: []const u8) void {
     }
 }
 
+pub const Point = struct {
+    x: f64,
+    y: f64,
+
+    pub fn pt(x: anytype, y: anytype) Point {
+        return .{
+            .x = switch (@TypeOf(x)) {
+                f64 => x,
+                f32 => x,
+                comptime_float => x,
+                usize => @floatFromInt(x),
+                u32 => @floatFromInt(x),
+                comptime_int => x,
+                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
+            },
+            .y = switch (@TypeOf(y)) {
+                f64 => y,
+                f32 => y,
+                comptime_float => y,
+                usize => @floatFromInt(y),
+                u32 => @floatFromInt(y),
+                comptime_int => y,
+                else => |T| @compileError("Point.pt not implemented for type " ++ @typeName(T)),
+            },
+        };
+    }
+
+    pub fn xyRound(p: Point) Box.XY {
+        // lol
+        const x = @round(p.x);
+        const y = @round(p.y);
+
+        return .{ .x = @intFromFloat(x), .y = @intFromFloat(y) };
+    }
+
+    pub fn format(point: Point, w: *std.Io.Writer) !void {
+        try w.print("{: >8.4} {: >8.4}      {: >8.4} {: >8.4}", .{
+            point.x, point.y, @round(point.x), @round(point.y),
+        });
+    }
+};
+
+pub fn drawBezier3(buf: *Buffer, T: type, points: [3]Point, color: T) void {
+    const a, const b, const c = points;
+    for (0..1000) |i| {
+        const t: f64 = @floatFromInt(i);
+        const p = bezier(t / 1000.0, a, b, b, c);
+        buf.drawFPoint(T, p, .hard, color);
+    }
+}
+
+pub fn drawBezier4(buf: *Buffer, T: type, points: [4]Point, color: T) void {
+    const a, const b, const c, const d = points;
+    for (0..1000) |i| {
+        const t: f64 = @floatFromInt(i);
+        const p = bezier(t / 1000.0, a, b, c, d);
+        buf.drawFPoint(T, p, .hard, color);
+    }
+}
+
+fn bezier(t: f64, a: Point, b: Point, c: Point, d: Point) Point {
+    const t2 = pow(f64, t, 2);
+    const t3 = pow(f64, t, 3);
+    const T = 1.0 - t;
+    const T_2 = pow(f64, T, 2);
+    const T_3 = pow(f64, T, 3);
+    const _3t_T2 = 3 * t * T_2;
+    const _3t2_T = 3 * t2 * T;
+
+    // B = (1-t)^3 * a + 3t(1-t)^2 * b + 3t^2(1-t) * c + t^3 * d;
+
+    return .{
+        .x = @mulAdd(f64, T_3, a.x, @mulAdd(f64, _3t_T2, b.x, @mulAdd(f64, _3t2_T, c.x, t3 * d.x))),
+        .y = @mulAdd(f64, T_3, a.y, @mulAdd(f64, _3t_T2, b.y, @mulAdd(f64, _3t2_T, c.y, t3 * d.y))),
+    };
+}
+
+test bezier {
+    const a: Point = .{ .x = 100.0, .y = 100.0 };
+    const b: Point = .{ .x = 200.0, .y = 200.0 };
+    const c: Point = .{ .x = 200.0, .y = 200.0 };
+    const d: Point = .{ .x = 300.0, .y = 100.0 };
+
+    for (0..1000) |i| {
+        const t: f64 = @floatFromInt(i);
+        const p = bezier(t / 1000.0, a, b, c, d);
+        if (false) std.debug.print("{f}\n", .{p});
+    }
+}
+
+test {
+    _ = &std.testing.refAllDecls(@This());
+}
+
 const std = @import("std");
 const assert = std.debug.assert;
 const wayland = @import("wayland");
 const wl = wayland.client.wl;
 const hypot = std.math.hypot;
+const pow = std.math.pow;
 const linux = std.os.linux;

@@ -172,6 +172,12 @@ fn drawPage1(alloc: Allocator, buffer: *Buffer) !void {
     buffer.drawTriangle(ARGB, .south_east, .xywh(850, 700, 100, 100), .charcoal);
     buffer.drawTriangle(ARGB, .south_west, .xywh(750, 700, 100, 100), .charcoal);
 
+    buffer.drawBezier3(ARGB, .{ .pt(600, 300), .pt(700, 100), .pt(800, 300) }, .charcoal);
+    buffer.drawBezier3(ARGB, .{ .pt(601, 300), .pt(700, 101), .pt(801, 300) }, .charcoal);
+
+    buffer.drawBezier3(ARGB, .{ .pt(600, 500), .pt(700, 400), .pt(800, 500) }, .charcoal);
+    buffer.drawBezier3(ARGB, .{ .pt(601, 500), .pt(700, 401), .pt(801, 500) }, .charcoal);
+
     try drawTextBottom(alloc, buffer);
 }
 
@@ -259,6 +265,12 @@ fn drawPage2(_: Allocator, colors: *Buffer) !void {
     colors.drawRectangleRoundedFill(Buffer.ARGB, .xywh(40, 600, 300, 40), 10, .parchment);
     colors.drawRectangleRounded(Buffer.ARGB, .xywh(40, 600, 300, 40), 10, .bittersweet_shimmer);
     colors.drawRectangleRounded(Buffer.ARGB, .xywh(41, 601, 298, 38), 9, .bittersweet_shimmer);
+
+    colors.drawBezier4(ARGB, .{ .pt(600, 300), .pt(700, 100), .pt(700, 500), .pt(800, 300) }, .charcoal);
+    colors.drawBezier4(ARGB, .{ .pt(601, 300), .pt(700, 100), .pt(700, 500), .pt(801, 300) }, .charcoal);
+
+    colors.drawBezier4(ARGB, .{ .pt(600, 500), .pt(700, 400), .pt(700, 600), .pt(800, 500) }, .charcoal);
+    colors.drawBezier4(ARGB, .{ .pt(601, 500), .pt(700, 400), .pt(700, 600), .pt(801, 500) }, .charcoal);
 }
 
 fn drawColorsPage1(size: usize, rotate: usize, buffer: *Buffer) !void {
