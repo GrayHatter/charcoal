@@ -415,15 +415,16 @@ pub fn drawFPoint(b: *Buffer, T: type, point: Point, rule: enum { hard, soft }, 
 
 const Fill = enum { fill, ring };
 
-inline fn ellipse(b: *Buffer, T: type, sy: usize, sx: usize, rx: usize, ry: usize, hx: f64, hy: f64, color: T, comptime fill: Fill) void {
+inline fn ellipse(b: *Buffer, T: type, sx: usize, sy: usize, rx: usize, ry: usize, hx: f64, hy: f64, color: T, comptime fill: Fill) void {
     @setRuntimeSafety(false);
     b.addDamageAssert(.xywh(sx, sy, rx, ry));
+    const sq = hx / hy;
     for (sy..sy + ry, 0..) |dst_y, y| {
         const row = b.rowSlice(dst_y);
         for (sx..sx + rx, 0..) |dst_x, x| {
             const dx: f64 = @as(f64, @floatFromInt(x)) - hx;
             const dy: f64 = @as(f64, @floatFromInt(y)) - hy;
-            const pixel: f64 = hypot(dx, dy) - hx + 0.5;
+            const pixel: f64 = hypot(dx, sq * dy) - hx + 0.5;
             if (fill == .fill) {
                 if (pixel <= 1) row[dst_x] = color.int();
             } else if (fill == .ring) {
@@ -433,38 +434,45 @@ inline fn ellipse(b: *Buffer, T: type, sy: usize, sx: usize, rx: usize, ry: usiz
     }
 }
 
-inline fn circle(b: *Buffer, T: type, sy: usize, sx: usize, r: usize, half: f64, color: T, comptime fill: Fill) void {
-    b.ellipse(T, sy, sx, r, r, half, half, color, fill);
+inline fn circle(b: *Buffer, T: type, sx: usize, sy: usize, r: usize, half: f64, color: T, comptime fill: Fill) void {
+    b.ellipse(T, sx, sy, r, r, half, half, color, fill);
 }
 
 pub fn drawEllipse(b: *Buffer, T: type, box: Box, color: T) void {
-    const half: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
-    b.circle(T, box.y, box.x, box.w, half, color, .fill);
+    const half_x: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
+    const half_y: f64 = @as(f64, @floatFromInt(box.h)) / 2.0 - 0.5;
+    b.ellipse(T, box.x, box.y, box.w, box.h, half_x, half_y, color, .ring);
+}
+
+pub fn drawOval(b: *Buffer, T: type, box: Box, color: T) void {
+    const half_x: f64 = @as(f64, @floatFromInt(box.w)) / 2.0 - 0.5;
+    const half_y: f64 = @as(f64, @floatFromInt(box.h)) / 2.0 - 0.5;
+    b.ellipse(T, box.x, box.y, box.w, box.h, half_x, half_y, color, .fill);
 }
 
 pub fn drawCircleCentered(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
     assert(@min(box.x, box.y) > r >> 1); // This should be supported, but currently unimplemented
     const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
     const adj: u32 = @intFromFloat(@floor(half + 0.6));
-    b.circle(T, box.y - adj, box.x - adj, r, half, color, .fill);
+    b.circle(T, box.x - adj, box.y - adj, r, half, color, .fill);
 }
 
 pub fn drawCircle(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
     const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
-    b.circle(T, box.y, box.x, r, half, color, .fill);
+    b.circle(T, box.x, box.y, r, half, color, .fill);
 }
 
 /// TODO add support for center vs corner alignment
 pub fn drawRing(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
     const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
-    b.circle(T, box.y, box.x, r, half, color, .ring);
+    b.circle(T, box.x, box.y, r, half, color, .ring);
 }
 
 pub fn drawRingCentered(b: *Buffer, T: type, box: Box.XY, r: usize, color: T) void {
     assert(@min(box.x, box.y) > (r - 1) / 2); // This should be supported, but currently unimplemented
     const half: f64 = @as(f64, @floatFromInt(r)) / 2.0 - 0.5;
     const adj: u32 = @intFromFloat(@floor(half + 0.6));
-    b.circle(T, box.y - adj, box.x - adj, r, half, color, .ring);
+    b.circle(T, box.x - adj, box.x - adj, r, half, color, .ring);
 }
 
 pub fn drawTrianglePoints(b: *Buffer, T: type, box: Box, color: T, points: [3]Point) void {

@@ -271,6 +271,8 @@ fn drawPage2(_: Allocator, colors: *Buffer) !void {
 
     colors.drawBezier4(ARGB, .{ .pt(600, 500), .pt(700, 400), .pt(700, 600), .pt(800, 500) }, .charcoal);
     colors.drawBezier4(ARGB, .{ .pt(601, 500), .pt(700, 400), .pt(700, 600), .pt(801, 500) }, .charcoal);
+
+    //colors.drawOval(Buffer.ARGB, .xywh(100, 550, 150, 400), .black);
 }
 
 fn drawColorsPage1(size: usize, rotate: usize, buffer: *Buffer) !void {
