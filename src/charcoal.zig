@@ -82,14 +82,15 @@ pub fn run(c: *Charcoal) !void {
 /// This can be used to create a single buffer with name `charcoal-wlbuffer`. For additional
 /// buffers, call `createBufferCapacity` or `Wayland.createBuffer` directly.
 pub fn createBuffer(c: *const Charcoal, box: Box) !Buffer {
-    const buffer = try c.createBufferCapacity(box, box, "charcoal-wlbuffer");
-    try c.wayland.resize(box);
-    try c.wayland.attach(&buffer);
-    return buffer;
+    return try c.createBufferCapacity(box, box, "charcoal-wlbuffer");
 }
 
 pub fn createBufferCapacity(c: *const Charcoal, box: Box, extra: Box, name: [:0]const u8) !Buffer {
-    return try c.wayland.createBufferCapacity(box, extra, name);
+    const buffer = try c.wayland.createBufferCapacity(box, extra, name);
+    try c.wayland.resize(box);
+    try c.wayland.attach(&buffer);
+    try c.wayland.roundtrip();
+    return buffer;
 }
 
 pub const FrameRate = enum(usize) {

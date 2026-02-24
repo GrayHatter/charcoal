@@ -606,6 +606,7 @@ test bezier {
 
 test {
     _ = &std.testing.refAllDecls(@This());
+    _ = &formats;
 }
 
 const std = @import("std");
