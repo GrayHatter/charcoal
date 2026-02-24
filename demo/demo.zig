@@ -21,10 +21,13 @@ pub fn main(init: std.process.Init) !void {
     defer default_buffer.raze();
     var color_buffer = try char.wayland.createBuffer(box, "buffer2");
     defer color_buffer.raze();
+    var page3_buffer = try char.wayland.createBuffer(box, "buffer3");
+    defer page3_buffer.raze();
 
     // The buffers are ready, draw the background colors
     try drawColorsPage1(box.w, 0, &default_buffer);
     try drawColorsPage2(box.w, 0, &color_buffer);
+    // We intentionally don't draw the background for page 3
 
     // The font file is embedded directly
     const ttf: Ttf = try .load(@alignCast(@embedFile("font.ttf")));
@@ -57,7 +60,13 @@ pub fn main(init: std.process.Init) !void {
         // The Component VTable provides an `auto` helper if you have all functions defined
         // (or set to null as below)
         .comp = .{ .vtable = .auto(Root) },
-        .extra = .{ .buffer = &default_buffer, .colors = &color_buffer, .char = &char },
+        .char = &char,
+
+        .pages = &.{
+            .{ .func = drawPage1, .buffer = &default_buffer },
+            .{ .func = drawPage2, .buffer = &color_buffer },
+            .{ .func = drawPage3, .buffer = &page3_buffer },
+        },
     };
 
     // Calling init on char.ui is optional, if you specify the root component directly at
@@ -76,15 +85,12 @@ var glyph_cache: Ttf.GlyphCache = undefined;
 const Root = struct {
     alloc: Allocator,
     comp: Ui.Component,
-    on_color: bool = true,
+    char: *Char,
     color: ARGB = .black,
-    extra: Extra = undefined,
+    pg_idx: usize = 0,
+    pages: []const struct { func: *const PageFn, buffer: *Buffer },
 
-    pub const Extra = struct {
-        char: *Char,
-        colors: *Buffer,
-        buffer: *Buffer,
-    };
+    const PageFn = fn (Allocator, *Buffer) anyerror!void;
 
     pub fn init(_: *Ui.Component, _: Buffer.Box, _: ?Allocator) !void {}
 
@@ -92,7 +98,26 @@ const Root = struct {
     pub const background = null;
     pub const keyPress = null;
     pub const mMove = null;
-    pub const mClick = null;
+
+    pub fn mClick(comp: *Ui.Component, mevt: Ui.Pointer.Click) bool {
+        std.debug.print("mevt {}\n", .{mevt});
+        if (!mevt.up) return false;
+
+        const root: *Root = @fieldParentPtr("comp", comp);
+
+        if (mevt.button == .left) {
+            root.pg_idx +%= 1;
+            root.char.ui.active_buffer = root.pages[root.pg_idx % root.pages.len].buffer;
+            root.pages[root.pg_idx % root.pages.len].buffer.damageAll();
+        } else {
+            root.pages[root.pg_idx % root.pages.len].func(
+                root.alloc,
+                root.pages[root.pg_idx % root.pages.len].buffer,
+            ) catch unreachable;
+        }
+
+        return true;
+    }
 
     pub fn draw(comp: *Ui.Component, buffer: *Buffer, _: Buffer.Box) void {
         const root: *Root = @fieldParentPtr("comp", comp);
@@ -100,24 +125,9 @@ const Root = struct {
     }
 
     pub fn tick(comp: *Ui.Component, iter: usize) void {
-        // Swap the active page every 100-ish ticks and then recalculate
-        // the color the color of the circle. While this calculation is
-        // extremely cheap, It's often better to all processing inside
-        // the tick function, and only draw
+        // Recalculate the color the color of the circle. While this calculation is extremely
+        // cheap, It's often better to all processing inside the tick function, and only draw
         const root: *Root = @fieldParentPtr("comp", comp);
-        if (iter % 180 == 0) {
-            if (iter / 180 & 1 > 0) {
-                std.debug.print("swap on\n", .{});
-                root.on_color = true;
-                root.extra.colors.damageAll();
-                root.extra.char.ui.active_buffer = root.extra.colors;
-            } else {
-                std.debug.print("swap off\n", .{});
-                root.on_color = false;
-                root.extra.buffer.damageAll();
-                root.extra.char.ui.active_buffer = root.extra.buffer;
-            }
-        }
         const low: u32 = @as(u8, @truncate(iter));
         const mid: u32 = @as(u16, @truncate(iter)) >> 8;
         root.color = .rgb(mid * 4, low, low * 4);
@@ -138,7 +148,7 @@ fn drawText(alloc: Allocator, buffer: *Buffer, text: []const u8) !void {
     }
 }
 
-fn drawPage1(alloc: Allocator, buffer: *Buffer) !void {
+fn drawPage1(alloc: Allocator, buffer: *Buffer) anyerror!void {
     try drawTextLowercase(alloc, .xy(20, 30), buffer);
     try drawTextUppercase(alloc, .xy(20, 55), buffer);
 
@@ -273,6 +283,14 @@ fn drawPage2(_: Allocator, colors: *Buffer) !void {
     colors.drawBezier4(ARGB, .{ .pt(601, 500), .pt(700, 400), .pt(700, 600), .pt(801, 500) }, .charcoal);
 
     //colors.drawOval(Buffer.ARGB, .xywh(100, 550, 150, 400), .black);
+}
+
+fn drawPage3(_: Allocator, buffer: *Buffer) !void {
+    const box_size: Box = .wh(100, 50);
+    buffer.drawRectangleFill(ARGB, box_size.add(.xy(50, 50)), .purple);
+    buffer.drawRectangleFill(ARGB, box_size.add(.xy(850, 250)), .cornsilk);
+
+    buffer.drawBezier4(ARGB, .{ .pt(150, 75), .pt(250, 75), .pt(750, 275), .pt(850, 275) }, .charcoal);
 }
 
 fn drawColorsPage1(size: usize, rotate: usize, buffer: *Buffer) !void {
